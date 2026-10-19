@@ -39,6 +39,8 @@ public partial class SettingsWindow : Window
         CamRecorder.HotkeyRecorded += h => OnHotkeyRecorded(h, camera: true);
         CamRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
 
+        ActivityPage.Attach(_app.Usage);
+
         _app.StateChanged += RefreshStatus;
         _app.DevicesChanged += RefreshDevices;
         _app.CameraDevicesChanged += RefreshCameras;
@@ -46,6 +48,7 @@ public partial class SettingsWindow : Window
         SourceInitialized += (_, _) => ThemeService.ApplyTitleBar(this);
         Closed += (_, _) =>
         {
+            ActivityPage.Detach();
             _app.StateChanged -= RefreshStatus;
             _app.DevicesChanged -= RefreshDevices;
             _app.CameraDevicesChanged -= RefreshCameras;
@@ -243,11 +246,12 @@ public partial class SettingsWindow : Window
         if (PageOverview == null) return; // during InitializeComponent
         var pages = new (RadioButton Nav, FrameworkElement Page)[]
         {
-            (NavOverview, PageOverview), (NavMic, PageMic), (NavCamera, PageCamera), (NavShortcuts, PageShortcuts),
+            (NavOverview, PageOverview), (NavActivity, PageActivity), (NavMic, PageMic), (NavCamera, PageCamera), (NavShortcuts, PageShortcuts),
             (NavFeedback, PageFeedback), (NavGeneral, PageGeneral), (NavAbout, PageAbout),
         };
         foreach (var (nav, page) in pages)
             page.Visibility = nav.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ActivityPage.SetActive(NavActivity.IsChecked == true);
     }
 
     // ---------------- microphone ----------------

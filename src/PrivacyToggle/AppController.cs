@@ -30,6 +30,9 @@ public sealed class AppController : IDisposable
     public PushToTalkService PushToTalk { get; private set; } = null!;
     public SoundService Sounds { get; } = new();
 
+    /// <summary>Which apps used the camera/microphone and when (Activity page).</summary>
+    public UsageTracker Usage { get; private set; } = null!;
+
     /// <summary>Non-null when the mic hotkey could not be activated (e.g. used by another app).</summary>
     public string? HotkeyError { get; private set; }
 
@@ -76,6 +79,8 @@ public sealed class AppController : IDisposable
             CameraStartState.On => false,
             _ => S.LastCameraOff,
         });
+
+        Usage = new UsageTracker(_dispatcher, Settings.FolderPath);
 
         // The Run key is the source of truth (the installer may have created it);
         // while the option is on, keep its path pointing at this EXE.
@@ -585,6 +590,7 @@ public sealed class AppController : IDisposable
         PushToTalk?.Dispose();
         Mic?.Dispose();
         Camera?.Dispose();
+        Usage?.Dispose();
         _micTray?.Dispose(); // removes the icons so no "ghost" stays in the tray
         _camTray?.Dispose();
         Sounds.Dispose();

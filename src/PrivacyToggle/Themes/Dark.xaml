@@ -21,4 +21,10 @@
     <SolidColorBrush x:Key="LiveColor" Color="#22C55E" />
     <SolidColorBrush x:Key="MutedColor" Color="#EF4444" />
     <SolidColorBrush x:Key="NoneColor" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="CamUsage" Color="#FBBF24" />
+    <SolidColorBrush x:Key="MicUsage" Color="#60A5FA" />
+    <SolidColorBrush x:Key="BadgeText" Color="#111216" />
+    <SolidColorBrush x:Key="ChipSelectedBg" Color="#33345A" />
+    <SolidColorBrush x:Key="RowHoverBg" Color="#2B2C34" />
+    <SolidColorBrush x:Key="DetailBg" Color="#212228" />
 </ResourceDictionary>

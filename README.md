@@ -1,65 +1,50 @@
+<div align="center">
+
+<img src="docs/icon-app.png" alt="PrivacyToggle icon" width="80">
+
 # PrivacyToggle
 
-<img src="docs/icon-app.png" width="64" align="right">
+**Kill your microphone and camera with one click or one shortcut, from the Windows tray.**
 
-A small Windows tray app for quick privacy toggles, using one click or a global hotkey.
+![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows)
+![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 
-- **Microphone (available now):** mutes or unmutes every microphone system-wide. While muted, no app (Zoom, Discord, Teams, browsers, OBS…) receives any audio.
-- **Camera (planned):** a matching toggle for webcams.
+</div>
 
-Tray icon for the microphone toggle:
+| | Live | Off | None found | Shortcut |
+|---|:---:|:---:|:---:|:---:|
+| 🎙️ **Microphone** | <img src="docs/icon-on.png" alt="on" width="32"> | <img src="docs/icon-off.png" alt="off" width="32"> | <img src="docs/icon-none.png" alt="none" width="32"> | `Ctrl+Alt+M` |
+| 📷 **Camera** | <img src="docs/icon-cam-on.png" alt="on" width="32"> | <img src="docs/icon-cam-off.png" alt="off" width="32"> | <img src="docs/icon-cam-none.png" alt="none" width="32"> | `Ctrl+Alt+V` |
 
-| Live | Muted | No mic |
-|:---:|:---:|:---:|
-| <img src="docs/icon-on.png" width="48"> | <img src="docs/icon-off.png" width="48"> | <img src="docs/icon-none.png" width="48"> |
+## ✨ Features
 
-## Using it
+- **System-wide mic mute.** No app (Zoom, Discord, Teams, browsers, OBS…) gets any audio while muted.
+- **Real camera off.** Disables the webcam in Windows, like Device Manager does. Apps lose the picture at once and can't reopen it. If a program won't let go, PrivacyToggle tells you which one and asks before closing it.
+- **Toggle or push-to-talk** for the mic, with global shortcuts that work even in fullscreen apps.
+- **Enforce off.** Re-mutes a mic or re-disables a camera that something else turns back on, including headset buttons and newly plugged-in devices.
+- **Per-device control.** Target all mics/cameras, or only the ones you pick.
+- **Activity monitor.** See which apps are using the camera or microphone right now, plus a 24-hour timeline of every app that used them. History (7 days) stays on your PC in `%AppData%\PrivacyToggle\usage.json`.
+- **Feedback:** click sounds, Windows notifications, and on-screen `MIC OFF` / `CAM OFF` badges that let clicks pass through.
 
-- **Left-click** the tray icon to toggle mute. **Right-click** for Mute/Unmute, Settings…, Start with Windows and Exit.
-- **Hotkey:** `Ctrl+Alt+M` by default. It works even while a fullscreen app is focused.
-- Hover over the tray icon to see the current state and hotkey.
-- Launching `PrivacyToggle.exe` again opens the Settings window of the copy that is already running.
-- `PrivacyToggle.exe --exit` closes a running copy cleanly.
+## 🖱️ Usage
 
-## Settings
+- **Left-click** a tray icon to switch it. **Right-click** for both controls, Settings and Exit.
+- Open **Settings** to change shortcuts, start state, devices, feedback, and which tray icons show. Changes save instantly to `%AppData%\PrivacyToggle\settings.json`.
+- Launching the app again opens Settings of the running copy. `PrivacyToggle.exe --exit` closes it.
 
-Every change saves immediately to `%AppData%\PrivacyToggle\settings.json`.
+> [!NOTE]
+> Camera control needs the small **PrivacyToggle Helper** service, which the installer sets up (one admin prompt). The tray app itself never runs as admin; mic control works without the service.
 
-- **General:** Start with Windows; start minimized to tray; the mic state on start (keep last / always unmuted / always muted); optionally double-click the tray icon to open Settings (single clicks stay instant).
-- **Hotkey:** click the box and press a combination (at least one of Ctrl/Alt/Shift/Win plus a key). If another app already owns that combination, you get a "Hotkey already in use" warning and the old hotkey stays.
-  - *Toggle* mode: press once to mute, press again to unmute.
-  - *Push-to-talk* mode: mics stay muted and are live only while you hold the hotkey. Exiting PrivacyToggle in this mode unmutes them.
-- **Feedback:** click sounds, a Windows notification on each toggle, and an on-screen "MIC OFF" badge. The badge stays on top and lets clicks pass through.
-- **Microphones:** mute all microphones, or only the ones you select. *Enforce mute* re-mutes any mic that something else unmutes while PrivacyToggle has it muted. When enforce mute is off, PrivacyToggle follows the change instead.
+## 🛠️ Build
 
-PrivacyToggle also follows changes made elsewhere: Windows Sound settings, headset mute buttons, and mics plugged in or unplugged. A mic plugged in while muted gets muted too. Nothing needs admin rights.
-
-## Build
-
-Requires the .NET 8 SDK (or newer).
+Requires the .NET 8 SDK.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build.ps1
+powershell -ExecutionPolicy Bypass -File build.ps1   # release build + installer
+dotnet run --project src/PrivacyToggle               # dev run
 ```
 
-This produces `publish\PrivacyToggle.exe`, a single self-contained file that doesn't need .NET installed. If [Inno Setup 6](https://jrsoftware.org/isinfo.php) is installed, the script also builds `installer\Output\PrivacyToggle-Setup-1.0.0.exe`. The installer is per-user (no admin rights), adds a Start Menu shortcut, offers "Start with Windows" and "Launch now", and its uninstaller removes the Run-key entry.
-
-For development: `dotnet run --project src/PrivacyToggle`.
-
-To change the icons, edit and rerun `tools\make-icons.ps1`. It draws them with System.Drawing and writes multi-size `.ico` files (16–256 px) into `src\PrivacyToggle\Assets`.
-
-## Layout
-
-```
-src/PrivacyToggle/
-  App.xaml(.cs)          startup, single instance, --exit
-  AppController.cs       tray icon + glue between the services
-  Services/              MicService (Core Audio), HotkeyService (RegisterHotKey),
-                         PushToTalkService / KeyCaptureHook (low-level keyboard hook),
-                         StartupService (Run key), SettingsService (JSON), SoundService, ThemeService
-  Views/                 SettingsWindow, HotkeyRecorderBox, OverlayWindow
-  Tray/TrayMenu.xaml     right-click menu
-  Themes/                light/dark brushes (follows the Windows app theme) + control styles
-installer/PrivacyToggle.iss    Inno Setup script
-tools/make-icons.ps1     icon generator
-```
+- `publish\PrivacyToggle.exe`: self-contained single file, no .NET install needed.
+- `installer\Output\PrivacyToggle-Setup-1.1.0.exe`: built if [Inno Setup 6](https://jrsoftware.org/isinfo.php) is installed. Installs the helper service, offers *Start with Windows*, and the uninstaller turns cameras back on and removes everything.
+- Icons are generated by `tools\make-icons.ps1`.
