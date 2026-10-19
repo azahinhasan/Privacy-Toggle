@@ -194,10 +194,11 @@ public sealed class AppController : IDisposable
             _micTray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(OnMicTrayDoubleClick) : null;
         if (_camTray != null)
         {
-            // Undoing a camera switch would mean turning the device off and on again,
-            // so with double-click enabled the camera icon waits to tell the two apart.
-            _camTray.NoLeftClickDelay = !S.DoubleClickOpensSettings;
-            _camTray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(ShowSettings) : null;
+            // The camera icon always acts at once. Undoing a camera switch on double-click would turn the
+            // device off and on again (dropping any call), so double-click-to-Settings is mic-icon only;
+            // the second click of a double-click is ignored while the first switch is still running.
+            _camTray.NoLeftClickDelay = true;
+            _camTray.DoubleClickCommand = null;
         }
     }
 
@@ -242,7 +243,7 @@ public sealed class AppController : IDisposable
     private string BuildCameraTooltip()
     {
         string hint = CameraHotkeyError != null ? "click to {0}" : $"{S.CameraHotkey} to {{0}}";
-        if (Camera.Busy) return "Camera — switching…";
+        if (Camera.Busy) return Camera.DesiredOff ? "Camera — turning off…" : "Camera — turning on…";
         return Camera.State switch
         {
             CameraState.Unavailable => "Camera control not installed — open Settings",
@@ -251,6 +252,15 @@ public sealed class AppController : IDisposable
             _ => "Camera ON — " + string.Format(hint, "turn off"),
         };
     }
+
+    /// <summary>
+    /// While a switch is running, show where it is heading so the icon reacts instantly like the mic's;
+    /// if Windows refuses, the next update shows the real state again.
+    /// </summary>
+    private CameraState DisplayedCameraState =>
+        Camera.Busy && Camera.State is CameraState.On or CameraState.Off
+            ? (Camera.DesiredOff ? CameraState.Off : CameraState.On)
+            : Camera.State;
 
     private void UpdateVisuals()
     {
@@ -262,7 +272,7 @@ public sealed class AppController : IDisposable
         }
         if (_camTray != null && Camera != null)
         {
-            _camTray.Icon = (System.Drawing.Icon)_camIcons[Camera.State].Clone();
+            _camTray.Icon = (System.Drawing.Icon)_camIcons[DisplayedCameraState].Clone();
             _camTray.ToolTipText = BuildCameraTooltip();
         }
         _micMenu?.Refresh();
@@ -339,6 +349,8 @@ public sealed class AppController : IDisposable
             CameraState.On => true,
             _ => !Camera.DesiredOff,
         };
+        // Feedback right away (like the mic); Windows takes a moment to actually switch the device.
+        if (S.PlaySound && Camera.State is CameraState.On or CameraState.Off) Sounds.Play(off, camera: true);
         await Camera.SetOffAsync(off);
 
         // A program holds the camera and refused: ask before closing it, then try again.
@@ -347,9 +359,6 @@ public sealed class AppController : IDisposable
             if (!BlockerDialog.Ask(blocker)) return;
             await Camera.CloseBlockerAndTurnOffAsync(blocker.ProcessId);
         }
-
-        if (Camera.LastError == null && S.PlaySound && Camera.State is CameraState.On or CameraState.Off)
-            Sounds.Play(Camera.State == CameraState.Off, camera: true);
 
         if (Camera.LastError != null)
             Notify("Camera", "Couldn't switch the camera: " + Camera.LastError);

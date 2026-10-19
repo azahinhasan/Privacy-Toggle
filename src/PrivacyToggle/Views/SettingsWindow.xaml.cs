@@ -164,7 +164,7 @@ public partial class SettingsWindow : Window
             _ => "Camera control not installed",
         };
         CamCardIcon.Source = Image(cam switch { CameraState.Off => "cam-off.ico", CameraState.On => "cam-on.ico", _ => "cam-none.ico" });
-        CamCardState.Text = camService.Busy ? "Switching…" : cam switch
+        CamCardState.Text = camService.Busy ? (camService.DesiredOff ? "Turning off…" : "Turning on…") : cam switch
         {
             CameraState.Off => "Off",
             CameraState.On => "On",

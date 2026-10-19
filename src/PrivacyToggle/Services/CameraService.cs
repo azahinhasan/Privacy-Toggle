@@ -120,6 +120,7 @@ public sealed class CameraService : IDisposable
         {
             Busy = false;
             _gate.Release();
+            StateChanged?.Invoke(); // listeners showing "turning off…" need to hear that it finished
         }
         await RefreshAsync();
     }

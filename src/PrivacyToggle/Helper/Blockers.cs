@@ -20,12 +20,12 @@ internal static class Blockers
     public static BlockerInfo? StillBlocking(string cameraId) =>
         FindVeto(cameraId, TimeSpan.FromDays(1), requireRunning: true);
 
-    /// <summary>The program that just refused (the log entry can land a moment after the refusal).</summary>
+    /// <summary>The program that just refused (the log entry can land a few seconds after the refusal).</summary>
     public static BlockerInfo? FromLatestVeto(string cameraId)
     {
-        for (int attempt = 0; attempt < 4; attempt++)
+        for (int attempt = 0; attempt < 16; attempt++)
         {
-            var blocker = FindVeto(cameraId, TimeSpan.FromSeconds(30), requireRunning: false);
+            var blocker = FindVeto(cameraId, TimeSpan.FromSeconds(60), requireRunning: false);
             if (blocker != null) return blocker;
             Thread.Sleep(250);
         }
@@ -50,8 +50,19 @@ internal static class Blockers
                     if (p.Count < 7 || !string.Equals(p[4].Value as string, cameraId, StringComparison.OrdinalIgnoreCase))
                         continue;
                     int pid = Convert.ToInt32(p[0].Value);
-                    if (requireRunning && !IsSameProcessRunning(pid, record.TimeCreated)) return null;
-                    return Describe(pid, p[2].Value as string ?? "", (p[6].Value as string ?? "").Trim().Trim('"'));
+                    string ntPath = p[2].Value as string ?? "";
+                    if (requireRunning)
+                    {
+                        // The same process, or the same program restarted under a new PID (e.g. a service
+                        // PrivacyToggle stopped and later restarted), will refuse again.
+                        if (!IsSameProcessRunning(pid, record.TimeCreated))
+                        {
+                            int? again = FindRunning(Path.GetFileNameWithoutExtension(ntPath));
+                            if (again == null) return null;
+                            pid = again.Value;
+                        }
+                    }
+                    return Describe(pid, ntPath, (p[6].Value as string ?? "").Trim().Trim('"'));
                 }
             }
         }
@@ -71,6 +82,14 @@ internal static class Blockers
         {
             return false;
         }
+    }
+
+    private static int? FindRunning(string processName)
+    {
+        if (string.IsNullOrEmpty(processName)) return null;
+        var processes = Process.GetProcessesByName(processName);
+        try { return processes.Length > 0 ? processes[0].Id : null; }
+        finally { foreach (var pr in processes) pr.Dispose(); }
     }
 
     private static BlockerInfo Describe(int pid, string ntPath, string exePath)

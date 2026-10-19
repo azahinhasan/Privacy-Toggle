@@ -330,8 +330,8 @@
                             <Border Style="{StaticResource RowDivider}" />
                             <CheckBox x:Name="DoubleClickBox" Style="{StaticResource ToggleSwitch}" Checked="DoubleClick_Changed" Unchecked="DoubleClick_Changed">
                                 <StackPanel>
-                                    <TextBlock Text="Double-click a tray icon to open Settings" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Mic clicks stay instant; a double-click undoes that click. Camera clicks wait a moment to tell the two apart." />
+                                    <TextBlock Text="Double-click the microphone icon to open Settings" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Single clicks stay instant; a double-click undoes that click. The camera icon always switches straight away." />
                                 </StackPanel>
                             </CheckBox>
                         </StackPanel>
