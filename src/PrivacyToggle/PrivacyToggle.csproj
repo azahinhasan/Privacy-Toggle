@@ -15,7 +15,6 @@
     <Description>Quick privacy toggles for your microphone (camera coming later), from the tray or a global hotkey.</Description>
     <Copyright>© 2026 azahinhasan</Copyright>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>

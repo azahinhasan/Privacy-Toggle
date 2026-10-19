@@ -25,7 +25,7 @@ Tray icon for the microphone toggle:
 
 Every change saves immediately to `%AppData%\PrivacyToggle\settings.json`.
 
-- **General:** Start with Windows; start minimized to tray; the mic state on start (keep last / always unmuted / always muted); optionally double-click the tray icon to open Settings. When that option is on, single clicks wait for the double-click time, so it's off by default.
+- **General:** Start with Windows; start minimized to tray; the mic state on start (keep last / always unmuted / always muted); optionally double-click the tray icon to open Settings (single clicks stay instant).
 - **Hotkey:** click the box and press a combination (at least one of Ctrl/Alt/Shift/Win plus a key). If another app already owns that combination, you get a "Hotkey already in use" warning and the old hotkey stays.
   - *Toggle* mode: press once to mute, press again to unmute.
   - *Push-to-talk* mode: mics stay muted and are live only while you hold the hotkey. Exiting PrivacyToggle in this mode unmutes them.

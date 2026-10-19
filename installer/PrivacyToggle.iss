@@ -12,7 +12,7 @@ AppId={{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=azahinhasan
-AppPublisherURL=https://github.com/azahinhasan/windows-utility-tools
+AppPublisherURL=https://github.com/azahinhasan/Privacy-Toggle
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -28,8 +28,8 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Matches the single-instance mutex in App.xaml.cs, so setup asks to close a running copy.
-AppMutex=PrivacyToggle.SingleInstance
+; A running copy is closed by the [Code] section below (PrivacyToggle.exe --exit) instead of AppMutex,
+; which would make setup/uninstall stop and ask (or silently abort) while the tray app is running.
 
 [Tasks]
 Name: "startup"; Description: "Start PrivacyToggle with Windows"; GroupDescription: "Options:"
@@ -49,11 +49,30 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; \
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent
 
-[UninstallRun]
-; Ask a running copy to quit cleanly (removes its tray icon) before files are deleted.
-Filename: "{app}\{#AppExe}"; Parameters: "--exit"; Flags: runhidden waituntilterminated; RunOnceId: "ExitPrivacyToggle"
-
 [Code]
+// Asks a running copy to quit cleanly (it removes its tray icon) and waits for it to exit.
+procedure CloseRunningApp(const ExePath: String);
+var
+  ResultCode: Integer;
+begin
+  if FileExists(ExePath) then
+    Exec(ExePath, '--exit', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+// Before installing over an existing copy (upgrade).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  CloseRunningApp(AddBackslash(WizardDirValue) + '{#AppExe}');
+  Result := '';
+end;
+
+// Before uninstalling.
+function InitializeUninstall(): Boolean;
+begin
+  CloseRunningApp(ExpandConstant('{app}\{#AppExe}'));
+  Result := True;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   // The app itself may have written the Run entry (Settings > Start with Windows), so always remove it.

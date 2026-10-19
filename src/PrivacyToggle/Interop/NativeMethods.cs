@@ -81,6 +81,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    public static extern uint GetDoubleClickTime();
+
     public const int SM_CXSMICON = 49;
 
     [DllImport("user32.dll")]

@@ -87,7 +87,7 @@
                         <CheckBox x:Name="DoubleClickBox" Style="{StaticResource ToggleSwitch}" Checked="DoubleClick_Changed" Unchecked="DoubleClick_Changed">
                             <StackPanel>
                                 <TextBlock Text="Double-click the tray icon to open Settings" />
-                                <TextBlock Style="{StaticResource Hint}" Text="Single clicks then wait a moment to tell them apart from double-clicks. Leave off for instant muting." />
+                                <TextBlock Style="{StaticResource Hint}" Text="Single clicks still mute instantly; a double-click undoes that click and opens Settings." />
                             </StackPanel>
                         </CheckBox>
                     </Border>

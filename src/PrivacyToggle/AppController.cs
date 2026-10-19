@@ -105,18 +105,40 @@ public sealed class AppController : IDisposable
             ToolTipText = "PrivacyToggle",
             ContextMenu = _menu,
             MenuActivation = PopupActivationMode.RightClick,
-            LeftClickCommand = new RelayCommand(UserToggle),
+            LeftClickCommand = new RelayCommand(OnTrayClick),
+            // Never wait for a possible double-click: the click acts at once (see OnTrayDoubleClick).
+            NoLeftClickDelay = true,
         };
         ApplyClickMode();
         _tray.ForceCreate(enablesEfficiencyMode: false);
     }
 
-    /// <summary>Instant single clicks by default; optionally wait so a double-click can open Settings.</summary>
     private void ApplyClickMode()
     {
         if (_tray == null) return;
-        _tray.NoLeftClickDelay = !S.DoubleClickOpensSettings;
-        _tray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(ShowSettings) : null;
+        _tray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(OnTrayDoubleClick) : null;
+    }
+
+    private long _lastClickTicks;
+    private bool _mutedBeforeClick;
+
+    private void OnTrayClick()
+    {
+        _lastClickTicks = Environment.TickCount64;
+        _mutedBeforeClick = Mic.DesiredMuted;
+        UserToggle();
+    }
+
+    /// <summary>
+    /// The first click of a double-click already toggled; undo it quietly, then open Settings.
+    /// This keeps single clicks instant instead of waiting out the double-click time.
+    /// </summary>
+    private void OnTrayDoubleClick()
+    {
+        long sinceClick = Environment.TickCount64 - _lastClickTicks;
+        if (sinceClick <= NativeMethods.GetDoubleClickTime() + 200 && Mic.DesiredMuted != _mutedBeforeClick)
+            Mic.SetMuted(_mutedBeforeClick);
+        ShowSettings();
     }
 
     private string BuildTooltip()
