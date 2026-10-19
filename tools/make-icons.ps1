@@ -1,4 +1,4 @@
-﻿# Generates the PrivacyToggle icons as multi-size .ico files (16, 20, 24, 32, 48, 256).
+# Generates the PrivacyToggle icons as multi-size .ico files (16, 20, 24, 32, 48, 256).
 # Small sizes are stored as 32-bit DIBs, 256 as PNG (the standard Windows layout).
 # Usage:  powershell -ExecutionPolicy Bypass -File tools\make-icons.ps1
 
@@ -39,6 +39,17 @@ function Draw-Mic($g, [int]$s, [float]$scale) {
     # stem + base
     $g.DrawLine($pen, $ox + $u * 0.50, $oy + $u * 0.74, $ox + $u * 0.50, $oy + $u * 0.88)
     $g.DrawLine($pen, $ox + $u * 0.34, $oy + $u * 0.90, $ox + $u * 0.66, $oy + $u * 0.90)
+}
+
+# Draws a white video-camera glyph: rounded body plus a lens "horn" on the right.
+function Draw-Camera($g, [int]$s) {
+    $white = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+    $g.FillPath($white, (New-RoundedRect ($s * 0.21) ($s * 0.34) ($s * 0.40) ($s * 0.32) ($s * 0.07)))
+    $g.FillPolygon($white, [System.Drawing.PointF[]]@(
+        (New-Object System.Drawing.PointF ($s * 0.63), ($s * 0.46)),
+        (New-Object System.Drawing.PointF ($s * 0.80), ($s * 0.36)),
+        (New-Object System.Drawing.PointF ($s * 0.80), ($s * 0.64)),
+        (New-Object System.Drawing.PointF ($s * 0.63), ($s * 0.54))))
 }
 
 # App icon: a white privacy shield with a keyhole cut out in the brand colour.
@@ -93,14 +104,16 @@ function Render([string]$kind, [int]$s) {
             Draw-Shield $g $s ([System.Drawing.Color]::FromArgb(255, 109, 80, 239))
         }
         default {
-            $color = switch ($kind) {
+            # 'on' / 'off' / 'none' = microphone; 'cam-on' / 'cam-off' / 'cam-none' = camera
+            $state = $kind -replace '^cam-', ''
+            $color = switch ($state) {
                 'on'   { [System.Drawing.Color]::FromArgb(255, 22, 163, 74) }
                 'off'  { [System.Drawing.Color]::FromArgb(255, 220, 38, 38) }
                 'none' { [System.Drawing.Color]::FromArgb(255, 107, 114, 128) }
             }
             $g.FillEllipse((New-Object System.Drawing.SolidBrush $color), $inset, $inset, $s - 2 * $inset, $s - 2 * $inset)
-            Draw-Mic $g $s 0.58
-            if ($kind -eq 'off') { Draw-Slash $g $s $color }
+            if ($kind -like 'cam-*') { Draw-Camera $g $s } else { Draw-Mic $g $s 0.58 }
+            if ($state -eq 'off') { Draw-Slash $g $s $color }
         }
     }
     $g.Dispose()
@@ -165,11 +178,14 @@ Write-Ico 'app'  (Join-Path $outDir 'app.ico')
 Write-Ico 'on'   (Join-Path $outDir 'mic-on.ico')
 Write-Ico 'off'  (Join-Path $outDir 'mic-off.ico')
 Write-Ico 'none' (Join-Path $outDir 'mic-none.ico')
+Write-Ico 'cam-on'   (Join-Path $outDir 'cam-on.ico')
+Write-Ico 'cam-off'  (Join-Path $outDir 'cam-off.ico')
+Write-Ico 'cam-none' (Join-Path $outDir 'cam-none.ico')
 
 # Large PNG previews for the docs
 $docs = Join-Path $PSScriptRoot '..\docs'
 New-Item -ItemType Directory -Force $docs | Out-Null
-foreach ($k in 'app', 'on', 'off', 'none') {
+foreach ($k in 'app', 'on', 'off', 'none', 'cam-on', 'cam-off', 'cam-none') {
     $bmp = Render $k 256
     $bmp.Save((Join-Path $docs "icon-$k.png"), [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()

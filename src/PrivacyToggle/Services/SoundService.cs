@@ -8,16 +8,19 @@ public sealed class SoundService : IDisposable
 {
     private readonly SoundPlayer _mute = new(BuildWave(880, 587));   // falling: mic off
     private readonly SoundPlayer _unmute = new(BuildWave(587, 880)); // rising: mic on
+    private readonly SoundPlayer _camOff = new(BuildWave(660, 440, 330)); // lower, three steps: camera
+    private readonly SoundPlayer _camOn = new(BuildWave(330, 440, 660));
 
     public SoundService()
     {
-        _mute.Load();
-        _unmute.Load();
+        foreach (var p in new[] { _mute, _unmute, _camOff, _camOn }) p.Load();
     }
 
-    public void Play(bool muted)
+    /// <summary>Plays the "off" or "on" sound; the camera has its own, lower pair.</summary>
+    public void Play(bool off, bool camera = false)
     {
-        try { (muted ? _mute : _unmute).Play(); } catch { /* no output device: ignore */ }
+        var player = camera ? (off ? _camOff : _camOn) : (off ? _mute : _unmute);
+        try { player.Play(); } catch { /* no output device: ignore */ }
     }
 
     private static MemoryStream BuildWave(params double[] tones)
@@ -51,7 +54,6 @@ public sealed class SoundService : IDisposable
 
     public void Dispose()
     {
-        _mute.Dispose();
-        _unmute.Dispose();
+        foreach (var p in new[] { _mute, _unmute, _camOff, _camOn }) p.Dispose();
     }
 }

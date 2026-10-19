@@ -4,14 +4,17 @@ using PrivacyToggle.Models;
 
 namespace PrivacyToggle.Services;
 
-/// <summary>System-wide hotkey via RegisterHotKey on a hidden message-only window.</summary>
+/// <summary>System-wide hotkeys via RegisterHotKey on a hidden message-only window.</summary>
 public sealed class HotkeyService : IDisposable
 {
-    private const int HotkeyId = 0x4D4D;
-    private readonly HwndSource _source;
-    private bool _registered;
+    public const int MicId = 0x4D4D;
+    public const int CameraId = 0x4D4E;
 
-    public event Action? Pressed;
+    private readonly HwndSource _source;
+    private readonly HashSet<int> _registered = new();
+
+    /// <summary>Raised with the id of the hotkey that was pressed.</summary>
+    public event Action<int>? Pressed;
 
     public HotkeyService()
     {
@@ -24,10 +27,10 @@ public sealed class HotkeyService : IDisposable
         _source.AddHook(WndProc);
     }
 
-    /// <summary>Registers the hotkey, replacing any previous one. Returns false if another app owns the combination.</summary>
-    public bool Register(HotkeySetting hotkey)
+    /// <summary>Registers a hotkey under <paramref name="id"/>, replacing any previous one. Returns false if another app owns the combination.</summary>
+    public bool Register(int id, HotkeySetting hotkey)
     {
-        Unregister();
+        Unregister(id);
         if (!hotkey.IsValid) return false;
 
         uint mods = NativeMethods.MOD_NOREPEAT;
@@ -36,30 +39,35 @@ public sealed class HotkeyService : IDisposable
         if (hotkey.Shift) mods |= NativeMethods.MOD_SHIFT;
         if (hotkey.Win) mods |= NativeMethods.MOD_WIN;
 
-        _registered = NativeMethods.RegisterHotKey(_source.Handle, HotkeyId, mods, (uint)hotkey.VirtualKey);
-        return _registered;
+        if (!NativeMethods.RegisterHotKey(_source.Handle, id, mods, (uint)hotkey.VirtualKey)) return false;
+        _registered.Add(id);
+        return true;
     }
 
-    public void Unregister()
+    public void Unregister(int id)
     {
-        if (!_registered) return;
-        NativeMethods.UnregisterHotKey(_source.Handle, HotkeyId);
-        _registered = false;
+        if (_registered.Remove(id))
+            NativeMethods.UnregisterHotKey(_source.Handle, id);
+    }
+
+    public void UnregisterAll()
+    {
+        foreach (var id in _registered.ToList()) Unregister(id);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == HotkeyId)
+        if (msg == NativeMethods.WM_HOTKEY && _registered.Contains(wParam.ToInt32()))
         {
             handled = true;
-            Pressed?.Invoke();
+            Pressed?.Invoke(wParam.ToInt32());
         }
         return IntPtr.Zero;
     }
 
     public void Dispose()
     {
-        Unregister();
+        UnregisterAll();
         _source.RemoveHook(WndProc);
         _source.Dispose();
     }

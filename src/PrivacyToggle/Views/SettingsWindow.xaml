@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:PrivacyToggle.Views"
-        Title="PrivacyToggle Settings" Width="720" Height="560" MinWidth="620" MinHeight="460"
+        Title="PrivacyToggle Settings" Width="780" Height="600" MinWidth="680" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Assets/app.ico"
         Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}"
@@ -17,30 +17,33 @@
         <!-- ============ Sidebar ============ -->
         <Border Background="{DynamicResource SidebarBg}">
             <DockPanel>
-                <!-- status card -->
-                <Border DockPanel.Dock="Top" Margin="12,14,12,14" Padding="14" CornerRadius="10"
-                        Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="StatusDot" Width="10" Height="10" VerticalAlignment="Center"
-                                     Fill="{DynamicResource LiveColor}" />
-                            <TextBlock x:Name="StatusText" Margin="8,0,0,0" FontSize="15" FontWeight="SemiBold"
-                                       Text="Mic is live" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock x:Name="StatusDetail" Style="{StaticResource Hint}" Margin="0,4,0,10" />
-                        <Button x:Name="ToggleButton" Style="{StaticResource AccentButton}" Content="Mute"
-                                HorizontalAlignment="Stretch" Click="ToggleButton_Click" />
+                <!-- brand + live status chips -->
+                <StackPanel DockPanel.Dock="Top" Margin="18,18,14,16">
+                    <StackPanel Orientation="Horizontal">
+                        <Image x:Name="BrandIcon" Width="26" Height="26" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="PrivacyToggle" FontSize="15" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
-                </Border>
+                    <StackPanel Margin="0,14,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Ellipse x:Name="MicDot" Width="8" Height="8" VerticalAlignment="Center" />
+                            <TextBlock x:Name="MicChip" Margin="8,0,0,0" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="CamDot" Width="8" Height="8" VerticalAlignment="Center" />
+                            <TextBlock x:Name="CamChip" Margin="8,0,0,0" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
 
-                <TextBlock DockPanel.Dock="Bottom" x:Name="SidebarVersion" Margin="20,0,0,14"
-                           Style="{StaticResource Hint}" />
+                <TextBlock DockPanel.Dock="Bottom" x:Name="SidebarVersion" Margin="20,0,0,14" Style="{StaticResource Hint}" />
 
                 <StackPanel>
-                    <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" Content="General" IsChecked="True" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavHotkey" Style="{StaticResource NavItem}" Content="Hotkey" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavOverview" Style="{StaticResource NavItem}" Content="Overview" IsChecked="True" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavMic" Style="{StaticResource NavItem}" Content="Microphone" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavCamera" Style="{StaticResource NavItem}" Content="Camera" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavShortcuts" Style="{StaticResource NavItem}" Content="Shortcuts" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavFeedback" Style="{StaticResource NavItem}" Content="Feedback" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavDevices" Style="{StaticResource NavItem}" Content="Microphones" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" Content="General" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" Content="About" Checked="Nav_Checked" />
                 </StackPanel>
             </DockPanel>
@@ -49,31 +52,67 @@
         <!-- ============ Pages ============ -->
         <Grid Grid.Column="1">
 
-            <!-- General -->
-            <ScrollViewer x:Name="PageGeneral" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10">
+            <!-- Overview -->
+            <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="General" />
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Overview" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Startup" />
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <CheckBox x:Name="StartWithWindowsBox" Style="{StaticResource ToggleSwitch}" Checked="StartWithWindows_Changed" Unchecked="StartWithWindows_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Start with Windows" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Launch PrivacyToggle in the tray when you sign in." />
+                        <!-- microphone card -->
+                        <Border Style="{StaticResource Card}" Padding="20" Margin="0">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                                    <Image x:Name="MicCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Microphone" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="MicCardDevices" Style="{StaticResource Hint}" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </CheckBox>
-                            <Border Style="{StaticResource RowDivider}" />
-                            <CheckBox x:Name="StartMinimizedBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Start minimized to tray" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="When off, this window opens every time PrivacyToggle starts manually." />
+                                <Button DockPanel.Dock="Bottom" x:Name="MicCardButton" Style="{StaticResource AccentButton}"
+                                        Margin="0,18,0,0" Click="MicCardButton_Click" />
+                                <StackPanel Margin="0,20,0,0">
+                                    <TextBlock x:Name="MicCardState" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="MicCardHint" Style="{StaticResource Hint}" />
                                 </StackPanel>
-                            </CheckBox>
-                        </StackPanel>
-                    </Border>
+                            </DockPanel>
+                        </Border>
 
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Microphone state when PrivacyToggle starts" />
+                        <!-- camera card -->
+                        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="20" Margin="0">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                                    <Image x:Name="CamCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Camera" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="CamCardDevices" Style="{StaticResource Hint}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button DockPanel.Dock="Bottom" x:Name="CamCardButton" Style="{StaticResource AccentButton}"
+                                        Margin="0,18,0,0" Click="CamCardButton_Click" />
+                                <StackPanel Margin="0,20,0,0">
+                                    <TextBlock x:Name="CamCardState" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="CamCardHint" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Hint}" Margin="2,16,0,0"
+                               Text="Click a tray icon or press its shortcut to switch. Right-click a tray icon for more options." />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Microphone -->
+            <ScrollViewer x:Name="PageMic" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Microphone" />
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="When PrivacyToggle starts" />
                     <Border Style="{StaticResource Card}" Padding="16,14">
                         <WrapPanel>
                             <RadioButton x:Name="StartKeepLast" Style="{StaticResource Segment}" GroupName="OnStart" Content="Keep last state" Checked="OnStart_Changed" />
@@ -81,95 +120,6 @@
                             <RadioButton x:Name="StartMuted" Style="{StaticResource Segment}" GroupName="OnStart" Content="Always muted" Checked="OnStart_Changed" />
                         </WrapPanel>
                     </Border>
-
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Tray icon" />
-                    <Border Style="{StaticResource Card}">
-                        <CheckBox x:Name="DoubleClickBox" Style="{StaticResource ToggleSwitch}" Checked="DoubleClick_Changed" Unchecked="DoubleClick_Changed">
-                            <StackPanel>
-                                <TextBlock Text="Double-click the tray icon to open Settings" />
-                                <TextBlock Style="{StaticResource Hint}" Text="Single clicks still mute instantly; a double-click undoes that click and opens Settings." />
-                            </StackPanel>
-                        </CheckBox>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Hotkey -->
-            <ScrollViewer x:Name="PageHotkey" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Hotkey" />
-
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Global shortcut" />
-                    <Border Style="{StaticResource Card}" Padding="16,14">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <v:HotkeyRecorderBox x:Name="Recorder" Width="260" />
-                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetHotkey_Click" />
-                            </StackPanel>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
-                                       Text="Click the box and press a combination. It needs at least one of Ctrl, Alt, Shift or Win plus a key. Works even when another app is focused." />
-                            <TextBlock x:Name="HotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Mode" />
-                    <Border Style="{StaticResource Card}" Padding="16,14">
-                        <StackPanel>
-                            <WrapPanel>
-                                <RadioButton x:Name="ModeToggle" Style="{StaticResource Segment}" GroupName="Mode" Content="Toggle" Checked="Mode_Changed" />
-                                <RadioButton x:Name="ModePtt" Style="{StaticResource Segment}" GroupName="Mode" Content="Push-to-talk" Checked="Mode_Changed" />
-                            </WrapPanel>
-                            <TextBlock x:Name="ModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Feedback -->
-            <ScrollViewer x:Name="PageFeedback" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Feedback" />
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <CheckBox x:Name="PlaySoundBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Play a sound on mute / unmute" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="A short falling tone when muting, rising when unmuting." />
-                                </StackPanel>
-                            </CheckBox>
-                            <Border Style="{StaticResource RowDivider}" />
-                            <CheckBox x:Name="NotificationBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Show a Windows notification on toggle" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Not shown for push-to-talk presses." />
-                                </StackPanel>
-                            </CheckBox>
-                            <Border Style="{StaticResource RowDivider}" />
-                            <CheckBox x:Name="OverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Overlay_Changed" Unchecked="Overlay_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Show an on-screen badge while muted" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="A small red “MIC OFF” badge that stays on top and lets clicks pass through." />
-                                </StackPanel>
-                            </CheckBox>
-                            <StackPanel x:Name="CornerPanel" Margin="0,0,0,14">
-                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
-                                <WrapPanel>
-                                    <RadioButton x:Name="CornerTL" Style="{StaticResource Segment}" GroupName="Corner" Content="Top left" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerTR" Style="{StaticResource Segment}" GroupName="Corner" Content="Top right" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerBL" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom left" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerBR" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom right" Checked="Overlay_Changed" />
-                                </WrapPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Devices -->
-            <ScrollViewer x:Name="PageDevices" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Microphones" />
 
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Which microphones to mute" />
                     <Border Style="{StaticResource Card}" Padding="16,14">
@@ -199,6 +149,183 @@
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- Camera -->
+            <ScrollViewer x:Name="PageCamera" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Camera" />
+
+                    <Border x:Name="CamHelperBanner" Style="{StaticResource Card}" Padding="16,14" BorderBrush="{DynamicResource Warning}" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Text="Camera control isn't installed" FontWeight="SemiBold" Foreground="{DynamicResource Warning}" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                                       Text="Turning cameras off needs the PrivacyToggle helper service, which the installer sets up (it asks for admin rights once). Run PrivacyToggle-Setup to enable it." />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="When PrivacyToggle starts" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <WrapPanel>
+                            <RadioButton x:Name="CamStartKeepLast" Style="{StaticResource Segment}" GroupName="CamOnStart" Content="Keep last state" Checked="CamOnStart_Changed" />
+                            <RadioButton x:Name="CamStartOn" Style="{StaticResource Segment}" GroupName="CamOnStart" Content="Always on" Checked="CamOnStart_Changed" />
+                            <RadioButton x:Name="CamStartOff" Style="{StaticResource Segment}" GroupName="CamOnStart" Content="Always off" Checked="CamOnStart_Changed" />
+                        </WrapPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Which cameras to turn off" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <WrapPanel>
+                                <RadioButton x:Name="CamDevAll" Style="{StaticResource Segment}" GroupName="CamDev" Content="All cameras" Checked="CamDevices_Changed" />
+                                <RadioButton x:Name="CamDevSelected" Style="{StaticResource Segment}" GroupName="CamDev" Content="Only selected" Checked="CamDevices_Changed" />
+                            </WrapPanel>
+                            <StackPanel x:Name="CamListPanel" Margin="0,12,0,0">
+                                <ItemsControl x:Name="CamList" />
+                                <TextBlock x:Name="NoCamerasText" Style="{StaticResource Hint}" Text="No cameras found." Visibility="Collapsed" />
+                                <TextBlock x:Name="CamSelectNoneWarning" Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Warning}" Visibility="Collapsed"
+                                           Text="No camera selected: turning off will have no effect." />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <CheckBox x:Name="CamEnforceBox" Style="{StaticResource ToggleSwitch}" Checked="CamEnforce_Changed" Unchecked="CamEnforce_Changed">
+                            <StackPanel>
+                                <TextBlock Text="Keep cameras off" />
+                                <TextBlock Style="{StaticResource Hint}" Text="If a camera is turned back on elsewhere (for example in Device Manager) while PrivacyToggle has it off, turn it off again. When off, PrivacyToggle follows the change." />
+                            </StackPanel>
+                        </CheckBox>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
+                               Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on." />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Shortcuts -->
+            <ScrollViewer x:Name="PageShortcuts" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Shortcuts" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="2,-8,0,14"
+                               Text="Click a box and press a combination with at least one of Ctrl, Alt, Shift or Win. Shortcuts work even when another app is focused." />
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Microphone" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <v:HotkeyRecorderBox x:Name="Recorder" Width="260" />
+                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetHotkey_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="HotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                            <WrapPanel Margin="0,14,0,0">
+                                <RadioButton x:Name="ModeToggle" Style="{StaticResource Segment}" GroupName="Mode" Content="Toggle" Checked="Mode_Changed" />
+                                <RadioButton x:Name="ModePtt" Style="{StaticResource Segment}" GroupName="Mode" Content="Push-to-talk" Checked="Mode_Changed" />
+                            </WrapPanel>
+                            <TextBlock x:Name="ModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Camera" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <v:HotkeyRecorderBox x:Name="CamRecorder" Width="260" />
+                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetCamHotkey_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="CamHotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                            <TextBlock x:Name="CamHotkeyHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Feedback -->
+            <ScrollViewer x:Name="PageFeedback" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Feedback" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="PlaySoundBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Play a sound when switching" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Falling tones for off, rising for on. The camera has its own, lower sound." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="NotificationBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a Windows notification on each switch" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Not shown for push-to-talk presses." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="OverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Overlay_Changed" Unchecked="Overlay_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show an on-screen badge while off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Small red “MIC OFF” / “CAM OFF” badges that stay on top and let clicks pass through." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="CornerPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="CornerTL" Style="{StaticResource Segment}" GroupName="Corner" Content="Top left" Checked="Overlay_Changed" />
+                                    <RadioButton x:Name="CornerTR" Style="{StaticResource Segment}" GroupName="Corner" Content="Top right" Checked="Overlay_Changed" />
+                                    <RadioButton x:Name="CornerBL" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom left" Checked="Overlay_Changed" />
+                                    <RadioButton x:Name="CornerBR" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom right" Checked="Overlay_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- General -->
+            <ScrollViewer x:Name="PageGeneral" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="General" />
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Startup" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="StartWithWindowsBox" Style="{StaticResource ToggleSwitch}" Checked="StartWithWindows_Changed" Unchecked="StartWithWindows_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Start with Windows" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Launch PrivacyToggle in the tray when you sign in." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="StartMinimizedBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Start minimized to tray" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="When off, this window opens every time PrivacyToggle starts manually." />
+                                </StackPanel>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Tray icons" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="CamTrayBox" Style="{StaticResource ToggleSwitch}" Checked="CamTray_Changed" Unchecked="CamTray_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a separate camera icon" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Click it to switch the camera. When off, use the shortcut or the right-click menu." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="DoubleClickBox" Style="{StaticResource ToggleSwitch}" Checked="DoubleClick_Changed" Unchecked="DoubleClick_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Double-click a tray icon to open Settings" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Mic clicks stay instant; a double-click undoes that click. Camera clicks wait a moment to tell the two apart." />
+                                </StackPanel>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
             <!-- About -->
             <ScrollViewer x:Name="PageAbout" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
                 <StackPanel>
@@ -215,9 +342,10 @@
                                 <TextBlock Text="PrivacyToggle" FontSize="20" FontWeight="SemiBold" />
                                 <TextBlock x:Name="VersionText" Style="{StaticResource Hint}" />
                                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                                           Text="Quick privacy toggles from the tray or a global hotkey. Microphone control today; camera control is planned." />
+                                           Text="Quick privacy toggles for your microphone and camera, from the tray or a global shortcut." />
+                                <TextBlock x:Name="HelperStatusText" Style="{StaticResource Hint}" Margin="0,8,0,0" />
                                 <TextBlock Margin="0,12,0,0">
-                                    <Hyperlink x:Name="RepoLink" NavigateUri="https://github.com/azahinhasan/windows-utility-tools" RequestNavigate="Link_RequestNavigate">
+                                    <Hyperlink x:Name="RepoLink" NavigateUri="https://github.com/azahinhasan/Privacy-Toggle" RequestNavigate="Link_RequestNavigate">
                                         GitHub repository
                                     </Hyperlink>
                                     <Run Text="   ·   " Foreground="{DynamicResource TextSecondary}" />

@@ -10,13 +10,14 @@ using PrivacyToggle.Views;
 
 namespace PrivacyToggle;
 
-/// <summary>Owns the services and the tray icon and holds the app's behaviour.</summary>
+/// <summary>Owns the services and the tray icons and holds the app's behaviour.</summary>
 public sealed class AppController : IDisposable
 {
     private readonly Dispatcher _dispatcher;
-    private readonly Dictionary<MicState, System.Drawing.Icon> _icons = new();
-    private TaskbarIcon? _tray;
-    private TrayMenu? _menu;
+    private readonly Dictionary<MicState, System.Drawing.Icon> _micIcons = new();
+    private readonly Dictionary<CameraState, System.Drawing.Icon> _camIcons = new();
+    private TaskbarIcon? _micTray, _camTray;
+    private TrayMenu? _micMenu, _camMenu;
     private SettingsWindow? _settingsWindow;
     private OverlayWindow? _overlay;
     private bool _hotkeySuspended;
@@ -24,17 +25,25 @@ public sealed class AppController : IDisposable
 
     public SettingsService Settings { get; } = new();
     public MicService Mic { get; private set; } = null!;
+    public CameraService Camera { get; private set; } = null!;
     public HotkeyService Hotkeys { get; private set; } = null!;
     public PushToTalkService PushToTalk { get; private set; } = null!;
     public SoundService Sounds { get; } = new();
 
-    /// <summary>Non-null when the hotkey could not be activated (e.g. used by another app).</summary>
+    /// <summary>Non-null when the mic hotkey could not be activated (e.g. used by another app).</summary>
     public string? HotkeyError { get; private set; }
 
-    /// <summary>Mic state or hotkey status changed; Settings window listens to refresh its header.</summary>
+    /// <summary>Non-null when the camera hotkey could not be activated.</summary>
+    public string? CameraHotkeyError { get; private set; }
+
+    /// <summary>Mic/camera state or hotkey status changed; the Settings window refreshes on this.</summary>
     public event Action? StateChanged;
 
+    /// <summary>The microphone list changed.</summary>
     public event Action? DevicesChanged;
+
+    /// <summary>The camera list changed.</summary>
+    public event Action? CameraDevicesChanged;
 
     private AppSettings S => Settings.Current;
 
@@ -57,24 +66,41 @@ public sealed class AppController : IDisposable
         Mic.StateChanged += OnMicStateChanged;
         Mic.DevicesChanged += () => DevicesChanged?.Invoke();
 
+        Camera = new CameraService(_dispatcher) { EnforceOff = S.EnforceCameraOff };
+        Camera.SetTargets(S.CameraDeviceMode, S.SelectedCameraIds, apply: false);
+        Camera.StateChanged += OnCameraStateChanged;
+        Camera.DevicesChanged += () => CameraDevicesChanged?.Invoke();
+        _ = Camera.StartAsync(S.CameraOnStartState switch
+        {
+            CameraStartState.Off => true,
+            CameraStartState.On => false,
+            _ => S.LastCameraOff,
+        });
+
         // The Run key is the source of truth (the installer may have created it);
         // while the option is on, keep its path pointing at this EXE.
         S.StartWithWindows = S.StartWithWindows || StartupService.IsEnabled();
         if (S.StartWithWindows) StartupService.RefreshPath();
         Settings.Save();
 
-        CreateTray();
+        UpdateTrays();
 
         Hotkeys = new HotkeyService();
-        Hotkeys.Pressed += UserToggle;
+        Hotkeys.Pressed += id =>
+        {
+            if (id == HotkeyService.MicId) UserToggle();
+            else if (id == HotkeyService.CameraId) UserToggleCamera();
+        };
         PushToTalk = new PushToTalkService(_dispatcher);
         PushToTalk.HeldChanged += held => SetMutedByUser(!held, notify: false);
-        ApplyHotkey();
+        ApplyHotkeys();
 
         OnMicStateChanged();
 
         if (HotkeyError != null)
             Notify("Hotkey unavailable", HotkeyError);
+        else if (CameraHotkeyError != null)
+            Notify("Hotkey unavailable", CameraHotkeyError);
 
         if (!minimizedArg && !S.StartMinimized)
             ShowSettings();
@@ -91,38 +117,94 @@ public sealed class AppController : IDisposable
             using var stream = info!.Stream;
             return new System.Drawing.Icon(stream, new System.Drawing.Size(size, size));
         }
-        _icons[MicState.Live] = Load("mic-on.ico");
-        _icons[MicState.Muted] = Load("mic-off.ico");
-        _icons[MicState.NoDevice] = Load("mic-none.ico");
+        _micIcons[MicState.Live] = Load("mic-on.ico");
+        _micIcons[MicState.Muted] = Load("mic-off.ico");
+        _micIcons[MicState.NoDevice] = Load("mic-none.ico");
+        _camIcons[CameraState.On] = Load("cam-on.ico");
+        _camIcons[CameraState.Off] = Load("cam-off.ico");
+        _camIcons[CameraState.NoDevice] = Load("cam-none.ico");
+        _camIcons[CameraState.Unavailable] = _camIcons[CameraState.NoDevice];
     }
 
-    private void CreateTray()
+    /// <summary>Creates or removes each tray icon to match the settings.</summary>
+    private void UpdateTrays()
     {
-        _menu = new TrayMenu(this);
-        _tray = new TaskbarIcon
+        if (S.ShowMicTrayIcon && _micTray == null)
         {
-            Icon = (System.Drawing.Icon)_icons[MicState.NoDevice].Clone(),
-            ToolTipText = "PrivacyToggle",
-            ContextMenu = _menu,
-            MenuActivation = PopupActivationMode.RightClick,
-            LeftClickCommand = new RelayCommand(OnTrayClick),
-            // Never wait for a possible double-click: the click acts at once (see OnTrayDoubleClick).
-            NoLeftClickDelay = true,
-        };
+            _micMenu = new TrayMenu(this);
+            _micTray = new TaskbarIcon
+            {
+                Id = StableTrayId("microphone"),
+                Icon = (System.Drawing.Icon)_micIcons[Mic.State].Clone(),
+                ToolTipText = "PrivacyToggle microphone",
+                ContextMenu = _micMenu,
+                MenuActivation = PopupActivationMode.RightClick,
+                LeftClickCommand = new RelayCommand(OnMicTrayClick),
+                // Never wait for a possible double-click: the click acts at once (see OnMicTrayDoubleClick).
+                NoLeftClickDelay = true,
+            };
+            _micTray.ForceCreate(enablesEfficiencyMode: false);
+        }
+        else if (!S.ShowMicTrayIcon && _micTray != null)
+        {
+            _micTray.Dispose();
+            _micTray = null;
+            _micMenu = null;
+        }
+
+        if (S.ShowCameraTrayIcon && _camTray == null)
+        {
+            _camMenu = new TrayMenu(this);
+            _camTray = new TaskbarIcon
+            {
+                Id = StableTrayId("camera"),
+                Icon = (System.Drawing.Icon)_camIcons[Camera.State].Clone(),
+                ToolTipText = "PrivacyToggle camera",
+                ContextMenu = _camMenu,
+                MenuActivation = PopupActivationMode.RightClick,
+                LeftClickCommand = new RelayCommand(UserToggleCamera),
+            };
+            _camTray.ForceCreate(enablesEfficiencyMode: false);
+        }
+        else if (!S.ShowCameraTrayIcon && _camTray != null)
+        {
+            _camTray.Dispose();
+            _camTray = null;
+            _camMenu = null;
+        }
+
         ApplyClickMode();
-        _tray.ForceCreate(enablesEfficiencyMode: false);
+        UpdateVisuals();
+    }
+
+    /// <summary>
+    /// Each tray icon needs its own fixed ID: icons without one share the same default identity,
+    /// so the second replaces the first. Windows ties an ID to the EXE path, so derive it from both.
+    /// </summary>
+    private static Guid StableTrayId(string name)
+    {
+        var bytes = System.Security.Cryptography.MD5.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"PrivacyToggle|{name}|{Environment.ProcessPath}".ToUpperInvariant()));
+        return new Guid(bytes);
     }
 
     private void ApplyClickMode()
     {
-        if (_tray == null) return;
-        _tray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(OnTrayDoubleClick) : null;
+        if (_micTray != null)
+            _micTray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(OnMicTrayDoubleClick) : null;
+        if (_camTray != null)
+        {
+            // Undoing a camera switch would mean turning the device off and on again,
+            // so with double-click enabled the camera icon waits to tell the two apart.
+            _camTray.NoLeftClickDelay = !S.DoubleClickOpensSettings;
+            _camTray.DoubleClickCommand = S.DoubleClickOpensSettings ? new RelayCommand(ShowSettings) : null;
+        }
     }
 
     private long _lastClickTicks;
     private bool _mutedBeforeClick;
 
-    private void OnTrayClick()
+    private void OnMicTrayClick()
     {
         _lastClickTicks = Environment.TickCount64;
         _mutedBeforeClick = Mic.DesiredMuted;
@@ -133,7 +215,7 @@ public sealed class AppController : IDisposable
     /// The first click of a double-click already toggled; undo it quietly, then open Settings.
     /// This keeps single clicks instant instead of waiting out the double-click time.
     /// </summary>
-    private void OnTrayDoubleClick()
+    private void OnMicTrayDoubleClick()
     {
         long sinceClick = Environment.TickCount64 - _lastClickTicks;
         if (sinceClick <= NativeMethods.GetDoubleClickTime() + 200 && Mic.DesiredMuted != _mutedBeforeClick)
@@ -141,7 +223,7 @@ public sealed class AppController : IDisposable
         ShowSettings();
     }
 
-    private string BuildTooltip()
+    private string BuildMicTooltip()
     {
         string hk = S.Hotkey.ToString();
         bool ptt = S.HotkeyMode == HotkeyMode.PushToTalk;
@@ -157,15 +239,34 @@ public sealed class AppController : IDisposable
         };
     }
 
+    private string BuildCameraTooltip()
+    {
+        string hint = CameraHotkeyError != null ? "click to {0}" : $"{S.CameraHotkey} to {{0}}";
+        if (Camera.Busy) return "Camera — switching…";
+        return Camera.State switch
+        {
+            CameraState.Unavailable => "Camera control not installed — open Settings",
+            CameraState.NoDevice => "PrivacyToggle — no camera found",
+            CameraState.Off => "Camera OFF — " + string.Format(hint, "turn on"),
+            _ => "Camera ON — " + string.Format(hint, "turn off"),
+        };
+    }
+
     private void UpdateVisuals()
     {
-        if (_tray != null)
+        if (_micTray != null)
         {
             // TaskbarIcon disposes the icon it replaces, so always hand it a copy.
-            _tray.Icon = (System.Drawing.Icon)_icons[Mic.State].Clone();
-            _tray.ToolTipText = BuildTooltip();
+            _micTray.Icon = (System.Drawing.Icon)_micIcons[Mic.State].Clone();
+            _micTray.ToolTipText = BuildMicTooltip();
         }
-        _menu?.Refresh();
+        if (_camTray != null && Camera != null)
+        {
+            _camTray.Icon = (System.Drawing.Icon)_camIcons[Camera.State].Clone();
+            _camTray.ToolTipText = BuildCameraTooltip();
+        }
+        _micMenu?.Refresh();
+        _camMenu?.Refresh();
         UpdateOverlay();
     }
 
@@ -173,12 +274,12 @@ public sealed class AppController : IDisposable
     {
         try
         {
-            _tray?.ShowNotification(title, message, NotificationIcon.None, sound: false);
+            (_micTray ?? _camTray)?.ShowNotification(title, message, NotificationIcon.None, sound: false);
         }
         catch { }
     }
 
-    // ---------------- mute actions ----------------
+    // ---------------- mic actions ----------------
 
     public void UserToggle()
     {
@@ -220,61 +321,114 @@ public sealed class AppController : IDisposable
         StateChanged?.Invoke();
     }
 
-    // ---------------- hotkey ----------------
+    // ---------------- camera actions ----------------
 
-    private void ApplyHotkey()
+    public async void UserToggleCamera()
     {
-        Hotkeys.Unregister();
+        if (Camera.State == CameraState.Unavailable)
+        {
+            Notify("Camera control not installed",
+                "Camera on/off needs the PrivacyToggle helper, which the installer sets up.");
+            return;
+        }
+        if (Camera.Busy) return;
+
+        bool off = Camera.State switch
+        {
+            CameraState.Off => false,
+            CameraState.On => true,
+            _ => !Camera.DesiredOff,
+        };
+        if (S.PlaySound) Sounds.Play(off, camera: true); // right away; the switch itself takes a moment
+        await Camera.SetOffAsync(off);
+
+        if (Camera.LastError != null)
+            Notify("Camera", "Couldn't switch the camera: " + Camera.LastError);
+        else if (Camera.NeedsRestart)
+            Notify("Camera", "Windows needs a restart to finish switching the camera.");
+        else if (S.ShowNotification)
+            Notify("PrivacyToggle", Camera.State switch
+            {
+                CameraState.NoDevice => "No camera found",
+                CameraState.Off => "Camera turned off",
+                _ => "Camera is on",
+            });
+    }
+
+    private void OnCameraStateChanged()
+    {
+        if (Camera.State is CameraState.On or CameraState.Off && !Camera.Busy && S.LastCameraOff != Camera.DesiredOff)
+        {
+            S.LastCameraOff = Camera.DesiredOff;
+            Settings.Save();
+        }
+        UpdateVisuals();
+        StateChanged?.Invoke();
+    }
+
+    // ---------------- hotkeys ----------------
+
+    private void ApplyHotkeys()
+    {
+        Hotkeys.UnregisterAll();
         PushToTalk.Stop();
         HotkeyError = null;
+        CameraHotkeyError = null;
 
         if (_hotkeySuspended) return;
 
         if (S.HotkeyMode == HotkeyMode.Toggle)
         {
-            if (!Hotkeys.Register(S.Hotkey))
+            if (!Hotkeys.Register(HotkeyService.MicId, S.Hotkey))
                 HotkeyError = $"{S.Hotkey} is already in use by another app. Pick a different hotkey in Settings.";
         }
         else if (!PushToTalk.Start(S.Hotkey))
         {
             HotkeyError = "Could not start push-to-talk (keyboard hook failed).";
         }
+
+        if (!Hotkeys.Register(HotkeyService.CameraId, S.CameraHotkey))
+            CameraHotkeyError = $"{S.CameraHotkey} is already in use by another app. Pick a different hotkey in Settings.";
     }
 
-    /// <summary>Called while the Settings recorder box captures keys, so the current hotkey doesn't fire.</summary>
+    /// <summary>Called while a Settings recorder box captures keys, so the current hotkeys don't fire.</summary>
     public void SuspendHotkey(bool suspend)
     {
         _hotkeySuspended = suspend;
-        var previousError = HotkeyError;
-        ApplyHotkey();
-        if (suspend) HotkeyError = previousError;
+        var (micError, camError) = (HotkeyError, CameraHotkeyError);
+        ApplyHotkeys();
+        if (suspend) (HotkeyError, CameraHotkeyError) = (micError, camError);
         UpdateVisuals();
         StateChanged?.Invoke();
     }
 
-    /// <summary>Tries a new hotkey. Returns false (and keeps the old one) if another app owns it.</summary>
-    public bool TryChangeHotkey(HotkeySetting hotkey)
+    /// <summary>Tries a new hotkey. Returns null on success, or why it was rejected (the old one stays).</summary>
+    public string? TryChangeHotkey(HotkeySetting hotkey, bool camera)
     {
-        if (S.HotkeyMode == HotkeyMode.Toggle)
+        var other = camera ? S.Hotkey : S.CameraHotkey;
+        if (hotkey.SameAs(other))
+            return $"{hotkey} is already the {(camera ? "microphone" : "camera")} shortcut.";
+
+        if (camera || S.HotkeyMode == HotkeyMode.Toggle)
         {
             // Probe the combination before committing to it.
-            Hotkeys.Unregister();
+            Hotkeys.UnregisterAll();
             PushToTalk.Stop();
-            bool ok = Hotkeys.Register(hotkey);
-            Hotkeys.Unregister();
+            bool ok = Hotkeys.Register(HotkeyService.MicId, hotkey);
+            Hotkeys.UnregisterAll();
             if (!ok)
             {
-                ApplyHotkey();
-                return false;
+                ApplyHotkeys();
+                return $"Hotkey already in use: {hotkey} is taken by another app.";
             }
         }
 
-        S.Hotkey = hotkey;
+        if (camera) S.CameraHotkey = hotkey; else S.Hotkey = hotkey;
         Settings.Save();
-        ApplyHotkey();
+        ApplyHotkeys();
         UpdateVisuals();
         StateChanged?.Invoke();
-        return true;
+        return null;
     }
 
     public void SetHotkeyMode(HotkeyMode mode)
@@ -282,7 +436,7 @@ public sealed class AppController : IDisposable
         if (S.HotkeyMode == mode) return;
         S.HotkeyMode = mode;
         Settings.Save();
-        ApplyHotkey();
+        ApplyHotkeys();
         if (mode == HotkeyMode.PushToTalk) Mic.SetMuted(true); // push-to-talk rests muted
         UpdateVisuals();
         StateChanged?.Invoke();
@@ -295,7 +449,8 @@ public sealed class AppController : IDisposable
         S.StartWithWindows = on;
         StartupService.SetEnabled(on);
         Settings.Save();
-        _menu?.Refresh();
+        _micMenu?.Refresh();
+        _camMenu?.Refresh();
         StateChanged?.Invoke();
     }
 
@@ -306,10 +461,24 @@ public sealed class AppController : IDisposable
         ApplyClickMode();
     }
 
+    public void SetShowCameraTrayIcon(bool on)
+    {
+        S.ShowCameraTrayIcon = on;
+        Settings.Save();
+        UpdateTrays();
+    }
+
     public void SetEnforceMute(bool on)
     {
         S.EnforceMute = on;
         Mic.EnforceMute = on;
+        Settings.Save();
+    }
+
+    public void SetEnforceCameraOff(bool on)
+    {
+        S.EnforceCameraOff = on;
+        Camera.EnforceOff = on;
         Settings.Save();
     }
 
@@ -319,6 +488,14 @@ public sealed class AppController : IDisposable
         S.SelectedDeviceIds = selectedIds.ToList();
         Settings.Save();
         Mic.SetTargets(S.DeviceMode, S.SelectedDeviceIds);
+    }
+
+    public void SetCameraTargets(DeviceMode mode, IEnumerable<string> selectedIds)
+    {
+        S.CameraDeviceMode = mode;
+        S.SelectedCameraIds = selectedIds.ToList();
+        Settings.Save();
+        Camera.SetTargets(S.CameraDeviceMode, S.SelectedCameraIds);
     }
 
     public void SetOverlay(bool show, OverlayCorner corner)
@@ -353,10 +530,12 @@ public sealed class AppController : IDisposable
 
     private void UpdateOverlay()
     {
-        bool show = S.ShowOverlay && Mic.State == MicState.Muted;
-        if (show)
+        bool micOff = Mic?.State == MicState.Muted;
+        bool camOff = Camera?.State == CameraState.Off;
+        if (S.ShowOverlay && (micOff || camOff))
         {
             _overlay ??= new OverlayWindow();
+            _overlay.SetBadges(micOff, camOff);
             _overlay.Place(S.OverlayCorner);
             if (!_overlay.IsVisible) _overlay.Show();
         }
@@ -380,8 +559,10 @@ public sealed class AppController : IDisposable
         Hotkeys?.Dispose();
         PushToTalk?.Dispose();
         Mic?.Dispose();
-        _tray?.Dispose(); // removes the icon so no "ghost" stays in the tray
+        Camera?.Dispose();
+        _micTray?.Dispose(); // removes the icons so no "ghost" stays in the tray
+        _camTray?.Dispose();
         Sounds.Dispose();
-        foreach (var icon in _icons.Values) icon.Dispose();
+        foreach (var icon in _micIcons.Values.Concat(_camIcons.Values).Distinct()) icon.Dispose();
     }
 }

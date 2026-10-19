@@ -37,6 +37,9 @@ public sealed class SettingsService
             Current.Hotkey ??= HotkeySetting.Default;
             Current.Hotkey.Modifiers ??= new();
             Current.SelectedDeviceIds ??= new();
+            Current.CameraHotkey ??= HotkeySetting.CameraDefault;
+            Current.CameraHotkey.Modifiers ??= new();
+            Current.SelectedCameraIds ??= new();
         }
         catch
         {

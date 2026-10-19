@@ -1,14 +1,19 @@
 ; Inno Setup script for PrivacyToggle.
 ; Build the EXE first (build.ps1 or dotnet publish into ..\publish), then compile:
-;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\PrivacyToggle.iss
+;   ISCC.exe installer\PrivacyToggle.iss
+;
+; Installs for all users into Program Files (needs admin once) and sets up the camera helper
+; service, which turns cameras on/off for the tray app. The tray app itself runs without admin.
 
 #define AppName "PrivacyToggle"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppExe "PrivacyToggle.exe"
+#define AppId "{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}"
+#define ServiceName "PrivacyToggleHelper"
 #define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
 
 [Setup]
-AppId={{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}
+AppId={{#AppId}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=azahinhasan
@@ -16,8 +21,8 @@ AppPublisherURL=https://github.com/azahinhasan/Privacy-Toggle
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-; Per-user install: no admin prompt.
-PrivilegesRequired=lowest
+; Admin is needed once: the camera helper service must live in Program Files.
+PrivilegesRequired=admin
 OutputDir=Output
 OutputBaseFilename=PrivacyToggle-Setup-{#AppVersion}
 SetupIconFile=..\src\PrivacyToggle\Assets\app.ico
@@ -47,7 +52,14 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; \
     ValueData: """{app}\{#AppExe}"" --minimized"; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Setting up camera control..."; \
+    Flags: runhidden waituntilterminated
+; Start the tray app as the signed-in user, not elevated.
+Filename: "{app}\{#AppExe}"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
+
+[UninstallRun]
+; Turns back on any camera PrivacyToggle turned off, then removes the helper service.
+Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveHelper"
 
 [Code]
 // Asks a running copy to quit cleanly (it removes its tray icon) and waits for it to exit.
@@ -59,10 +71,26 @@ begin
     Exec(ExePath, '--exit', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-// Before installing over an existing copy (upgrade).
+// Version 1.0 installed per-user (no admin) into AppData; remove that copy so there aren't two.
+procedure RemoveOldPerUserInstall();
+var
+  Uninstaller: String;
+  ResultCode: Integer;
+begin
+  if RegQueryStringValue(HKEY_CURRENT_USER,
+       'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#AppId}_is1', 'UninstallString', Uninstaller) then
+    Exec(RemoveQuotes(Uninstaller), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE,
+         ewWaitUntilTerminated, ResultCode);
+end;
+
+// Before installing over an existing copy (upgrade): close the app and stop the helper so the EXE isn't locked.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
 begin
   CloseRunningApp(AddBackslash(WizardDirValue) + '{#AppExe}');
+  RemoveOldPerUserInstall();
+  Exec(ExpandConstant('{sys}\net.exe'), 'stop {#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
 end;
 

@@ -13,6 +13,7 @@ public sealed class HotkeySetting
     public string Key { get; set; } = "";
 
     public static HotkeySetting Default => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "M" };
+    public static HotkeySetting CameraDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "V" };
 
     [JsonIgnore] public bool Ctrl => Has("Ctrl");
     [JsonIgnore] public bool Alt => Has("Alt");

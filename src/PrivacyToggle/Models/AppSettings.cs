@@ -4,6 +4,7 @@ public enum OnStartState { KeepLast, Unmuted, Muted }
 public enum HotkeyMode { Toggle, PushToTalk }
 public enum DeviceMode { All, Selected }
 public enum OverlayCorner { TopLeft, TopRight, BottomLeft, BottomRight }
+public enum CameraStartState { KeepLast, On, Off }
 
 public sealed class AppSettings
 {
@@ -26,4 +27,16 @@ public sealed class AppSettings
     public DeviceMode DeviceMode { get; set; } = DeviceMode.All;
     public List<string> SelectedDeviceIds { get; set; } = new();
     public bool EnforceMute { get; set; } = true;
+
+    // ---- camera ----
+    public HotkeySetting CameraHotkey { get; set; } = HotkeySetting.CameraDefault;
+    public CameraStartState CameraOnStartState { get; set; } = CameraStartState.KeepLast;
+
+    /// <summary>Null until the camera was first toggled; KeepLast then simply follows the devices.</summary>
+    public bool? LastCameraOff { get; set; }
+
+    public DeviceMode CameraDeviceMode { get; set; } = DeviceMode.All;
+    public List<string> SelectedCameraIds { get; set; } = new();
+    public bool EnforceCameraOff { get; set; } = true;
+    public bool ShowCameraTrayIcon { get; set; } = true;
 }

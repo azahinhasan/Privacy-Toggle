@@ -2,6 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <MenuItem x:Name="ToggleItem" Header="Mute microphone" FontWeight="SemiBold" Click="Toggle_Click" />
+    <MenuItem x:Name="CameraItem" Header="Turn camera off" FontWeight="SemiBold" Click="Camera_Click" />
+    <Separator />
     <MenuItem Header="Settings…" Click="Settings_Click" />
     <MenuItem x:Name="StartupItem" Header="Start with Windows" IsCheckable="True" Click="Startup_Click" />
     <Separator />
