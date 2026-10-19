@@ -249,13 +249,6 @@
                     <TextBlock Style="{StaticResource PageTitle}" Text="Feedback" />
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
-                            <CheckBox x:Name="PlaySoundBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Play a sound when switching" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Falling tones for off, rising for on. The camera has its own, lower sound." />
-                                </StackPanel>
-                            </CheckBox>
-                            <Border Style="{StaticResource RowDivider}" />
                             <CheckBox x:Name="NotificationBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
                                 <StackPanel>
                                     <TextBlock Text="Show a Windows notification on each switch" />
@@ -305,6 +298,16 @@
                                 </StackPanel>
                             </CheckBox>
                         </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Sound" />
+                    <Border Style="{StaticResource Card}">
+                        <CheckBox x:Name="PlaySoundBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
+                            <StackPanel>
+                                <TextBlock Text="Play a sound when switching" />
+                                <TextBlock Style="{StaticResource Hint}" Text="A short tone when the microphone or camera turns on or off (the camera has its own, lower tone). Turn off for silent switching." />
+                            </StackPanel>
+                        </CheckBox>
                     </Border>
 
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Tray icons" />
