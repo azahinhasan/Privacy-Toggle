@@ -339,8 +339,17 @@ public sealed class AppController : IDisposable
             CameraState.On => true,
             _ => !Camera.DesiredOff,
         };
-        if (S.PlaySound) Sounds.Play(off, camera: true); // right away; the switch itself takes a moment
         await Camera.SetOffAsync(off);
+
+        // A program holds the camera and refused: ask before closing it, then try again.
+        if (off && Camera.LastBlocker is { } blocker)
+        {
+            if (!BlockerDialog.Ask(blocker)) return;
+            await Camera.CloseBlockerAndTurnOffAsync(blocker.ProcessId);
+        }
+
+        if (Camera.LastError == null && S.PlaySound && Camera.State is CameraState.On or CameraState.Off)
+            Sounds.Play(Camera.State == CameraState.Off, camera: true);
 
         if (Camera.LastError != null)
             Notify("Camera", "Couldn't switch the camera: " + Camera.LastError);
@@ -459,6 +468,13 @@ public sealed class AppController : IDisposable
         S.DoubleClickOpensSettings = on;
         Settings.Save();
         ApplyClickMode();
+    }
+
+    public void SetShowMicTrayIcon(bool on)
+    {
+        S.ShowMicTrayIcon = on;
+        Settings.Save();
+        UpdateTrays();
     }
 
     public void SetShowCameraTrayIcon(bool on)

@@ -189,16 +189,18 @@
                     </Border>
 
                     <Border Style="{StaticResource Card}">
-                        <CheckBox x:Name="CamEnforceBox" Style="{StaticResource ToggleSwitch}" Checked="CamEnforce_Changed" Unchecked="CamEnforce_Changed">
-                            <StackPanel>
-                                <TextBlock Text="Keep cameras off" />
-                                <TextBlock Style="{StaticResource Hint}" Text="If a camera is turned back on elsewhere (for example in Device Manager) while PrivacyToggle has it off, turn it off again. When off, PrivacyToggle follows the change." />
-                            </StackPanel>
-                        </CheckBox>
+                        <StackPanel>
+                            <CheckBox x:Name="CamEnforceBox" Style="{StaticResource ToggleSwitch}" Checked="CamEnforce_Changed" Unchecked="CamEnforce_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Keep cameras off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="If a camera is turned back on elsewhere (for example in Device Manager) while PrivacyToggle has it off, turn it off again. When off, PrivacyToggle follows the change." />
+                                </StackPanel>
+                            </CheckBox>
+                        </StackPanel>
                     </Border>
 
                     <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
-                               Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on." />
+                               Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on. If a program holds the camera and won't let go, PrivacyToggle asks before closing it; a background service closed this way is started again when you turn the camera back on." />
                 </StackPanel>
             </ScrollViewer>
 
@@ -308,12 +310,23 @@
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Tray icons" />
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
-                            <CheckBox x:Name="CamTrayBox" Style="{StaticResource ToggleSwitch}" Checked="CamTray_Changed" Unchecked="CamTray_Changed">
+                            <CheckBox x:Name="MicTrayBox" Style="{StaticResource ToggleSwitch}" Checked="MicTray_Changed" Unchecked="MicTray_Changed">
                                 <StackPanel>
-                                    <TextBlock Text="Show a separate camera icon" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Click it to switch the camera. When off, use the shortcut or the right-click menu." />
+                                    <TextBlock Text="Show the microphone icon" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Click it to mute or unmute. Right-click for both controls and Settings." />
                                 </StackPanel>
                             </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="CamTrayBox" Style="{StaticResource ToggleSwitch}" Checked="CamTray_Changed" Unchecked="CamTray_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show the camera icon" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Click it to turn the camera off or on. Right-click for both controls and Settings." />
+                                </StackPanel>
+                            </CheckBox>
+                            <TextBlock x:Name="NoTrayWarning" Margin="0,0,0,12" TextWrapping="Wrap" Foreground="{DynamicResource Warning}"
+                                       Visibility="Collapsed"
+                                       Text="With both icons hidden, use the shortcuts, or start PrivacyToggle again to open this window." />
+                            <Border Style="{StaticResource RowDivider}" />
                             <Border Style="{StaticResource RowDivider}" />
                             <CheckBox x:Name="DoubleClickBox" Style="{StaticResource ToggleSwitch}" Checked="DoubleClick_Changed" Unchecked="DoubleClick_Changed">
                                 <StackPanel>

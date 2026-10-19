@@ -20,86 +20,92 @@ internal static class CameraDevices
         return result.OrderBy(d => d.Name).ToList();
     }
 
-    /// <summary>Enables or disables one camera. Returns an error message, or null on success.</summary>
-    public static string? SetEnabled(string id, bool enable, out bool needsRestart)
+    /// <summary>
+    /// Enables or disables one camera. Returns an error message, or null on success. When a program
+    /// holds the camera open and refuses, <paramref name="blocker"/> says which one.
+    /// </summary>
+    public static string? SetEnabled(string id, bool enable, out bool needsRestart, out BlockerInfo? blocker)
     {
         bool restart = false;
+        BlockerInfo? found = null;
         string? error = $"Camera not found: {id}";
         Enumerate((set, data, device) =>
         {
             if (!device.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) return false;
             if (enable)
-                // Always run: enabling also clears a disable that Windows queued for the next reboot.
-                error = Enable(set, data, out restart);
+            {
+                // A running camera only needs a queued disable cleared (restarting it would need a reboot
+                // while a program holds it); a disabled one is switched back on.
+                if (device.Enabled) { ClearQueuedDisable(set, ref data); error = null; }
+                else error = Enable(set, data, out restart);
+            }
+            else if (device.Enabled)
+            {
+                // A refused attempt also leaves Windows' camera service unable to open the camera until it
+                // restarts, so don't even try while the program that refused last time is still running.
+                found = Blockers.StillBlocking(device.Id);
+                error = found != null ? BlockedMessage(found) : Disable(set, ref data, device.Id, out found);
+            }
             else
-                error = device.Enabled ? Disable(data.DevInst, device.Id) : null;
+            {
+                error = null;
+            }
             return true;
         });
         needsRestart = restart;
+        blocker = found;
         return error;
     }
 
-    /// <summary>
-    /// Repairs cameras that an earlier disable left "disabled at next boot" because a program vetoed it:
-    /// such a camera still runs but apps can't open it until reboot. Returns how many were repaired.
-    /// </summary>
+    public static string BlockedMessage(BlockerInfo b) =>
+        $"{b.Name} is holding the camera open, so Windows can't turn it off.";
+
+    /// <summary>Clears any camera left "disabled at next boot" by an earlier refused attempt. Returns how many.</summary>
     public static int RepairPendingDisables()
     {
         int repaired = 0;
         Enumerate((set, data, device) =>
         {
-            if (device.Enabled && (GetConfigFlags(set, ref data) & CONFIGFLAG_DISABLED) != 0 &&
-                Enable(set, data, out _) == null)
-                repaired++;
+            if (device.Enabled && ClearQueuedDisable(set, ref data)) repaired++;
             return false;
         });
         return repaired;
     }
 
     /// <summary>
-    /// Disables through the PnP manager. Unlike a class-installer property change, this fails cleanly
-    /// when a program holding the camera vetoes it, instead of queueing the disable for the next reboot.
+    /// Disables through the PnP manager, which fails cleanly when a program holding the camera refuses.
+    /// It's done without "persist" first: persisting up front would leave the camera queued as
+    /// "disabled at next boot" whenever a program refuses.
     /// </summary>
-    private static string? Disable(uint devInst, string id)
+    private static string? Disable(IntPtr set, ref SP_DEVINFO_DATA data, string id, out BlockerInfo? blocker)
     {
-        uint cr = CM_Disable_DevNode(devInst, CM_DISABLE_UI_NOT_OK | CM_DISABLE_PERSIST);
-        if (cr == CR_SUCCESS) return null;
+        blocker = null;
+        uint cr = CM_Disable_DevNode(data.DevInst, CM_DISABLE_UI_NOT_OK);
+        if (cr == CR_SUCCESS)
+        {
+            // Stopped; now make it stick across reboots (the flag Device Manager sets for "disabled").
+            uint flags = GetConfigFlags(set, ref data) | CONFIGFLAG_DISABLED;
+            var buffer = BitConverter.GetBytes(flags);
+            SetupDiSetDeviceRegistryProperty(set, ref data, SPDRP_CONFIGFLAGS, buffer, (uint)buffer.Length);
+            return null;
+        }
+
+        ClearQueuedDisable(set, ref data); // belt and braces: never leave a queued disable behind
         if (cr == CR_REMOVE_VETOED)
         {
-            string? blocker = FindVetoingApp(id);
-            return blocker != null
-                ? $"{blocker} is using the camera and won't let Windows turn it off. Close it and try again."
-                : "Another program is using the camera and won't let Windows turn it off. Close it and try again.";
+            blocker = Blockers.FromLatestVeto(id);
+            return blocker != null ? BlockedMessage(blocker) : "Another program is holding the camera open, so Windows can't turn it off.";
         }
         return $"Windows couldn't turn the camera off (error 0x{cr:X}).";
     }
 
-    /// <summary>Kernel-PnP logs which process blocked a removal (event 225); read the newest one for this camera.</summary>
-    private static string? FindVetoingApp(string id)
+    /// <summary>Removes a queued "disabled at next boot" flag without restarting the device.</summary>
+    private static bool ClearQueuedDisable(IntPtr set, ref SP_DEVINFO_DATA data)
     {
-        try
-        {
-            const string query = "*[System[Provider[@Name='Microsoft-Windows-Kernel-PnP'] and EventID=225 and TimeCreated[timediff(@SystemTime) <= 15000]]]";
-            for (int attempt = 0; attempt < 3; attempt++)
-            {
-                using var reader = new System.Diagnostics.Eventing.Reader.EventLogReader(
-                    new System.Diagnostics.Eventing.Reader.EventLogQuery("System", System.Diagnostics.Eventing.Reader.PathType.LogName, query)
-                    { ReverseDirection = true });
-                for (var record = reader.ReadEvent(); record != null; record = reader.ReadEvent())
-                {
-                    using (record)
-                    {
-                        string text = record.FormatDescription() ?? "";
-                        if (!text.Contains(id, StringComparison.OrdinalIgnoreCase)) continue;
-                        var match = System.Text.RegularExpressions.Regex.Match(text, @"application (.+?) with process id");
-                        if (match.Success) return System.IO.Path.GetFileName(match.Groups[1].Value.Trim());
-                    }
-                }
-                Thread.Sleep(200); // the event can land just after the veto
-            }
-        }
-        catch { }
-        return null;
+        uint flags = GetConfigFlags(set, ref data);
+        if ((flags & CONFIGFLAG_DISABLED) == 0) return false;
+        var buffer = BitConverter.GetBytes(flags & ~CONFIGFLAG_DISABLED);
+        return SetupDiSetDeviceRegistryProperty(set, ref data, SPDRP_CONFIGFLAGS, buffer, (uint)buffer.Length);
     }
 
     private delegate bool Visitor(IntPtr set, SP_DEVINFO_DATA data, CameraDevice device);
@@ -195,7 +201,7 @@ internal static class CameraDevices
     private const uint DICS_ENABLE = 1, DICS_FLAG_GLOBAL = 1;
     private const uint DI_NEEDRESTART = 0x80, DI_NEEDREBOOT = 0x100;
     private const uint CM_PROB_DISABLED = 22;
-    private const uint CM_DISABLE_UI_NOT_OK = 0x4, CM_DISABLE_PERSIST = 0x8;
+    private const uint CM_DISABLE_UI_NOT_OK = 0x4;
     private const uint CR_SUCCESS = 0, CR_REMOVE_VETOED = 0x17;
     private static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
 
@@ -255,6 +261,10 @@ internal static class CameraDevices
     [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SetupDiGetDeviceRegistryProperty(IntPtr set, ref SP_DEVINFO_DATA data, uint property,
         out uint regType, byte[] buffer, uint size, out uint required);
+
+    [DllImport("setupapi.dll", SetLastError = true)]
+    private static extern bool SetupDiSetDeviceRegistryProperty(IntPtr set, ref SP_DEVINFO_DATA data, uint property,
+        byte[] buffer, uint size);
 
     [DllImport("setupapi.dll", SetLastError = true)]
     private static extern bool SetupDiSetClassInstallParams(IntPtr set, ref SP_DEVINFO_DATA data, ref SP_PROPCHANGE_PARAMS p, uint size);

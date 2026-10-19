@@ -41,6 +41,9 @@ public sealed class CameraService : IDisposable
     /// <summary>Last error from the helper, if any.</summary>
     public string? LastError { get; private set; }
 
+    /// <summary>The program that blocked the last attempt to turn off, if any.</summary>
+    public BlockerInfo? LastBlocker { get; private set; }
+
     public bool NeedsRestart { get; private set; }
 
     public IReadOnlyList<CameraDevice> Devices => _devices;
@@ -83,20 +86,33 @@ public sealed class CameraService : IDisposable
         _ => !DesiredOff,
     });
 
-    public async Task SetOffAsync(bool off)
+    public Task SetOffAsync(bool off) => ChangeAsync(off, closeProcessId: 0);
+
+    /// <summary>Closes the program that blocked turning off (see <see cref="LastBlocker"/>), then turns off.</summary>
+    public Task CloseBlockerAndTurnOffAsync(int processId) => ChangeAsync(true, processId);
+
+    private async Task ChangeAsync(bool off, int closeProcessId)
     {
         if (_disposed) return;
         DesiredOff = off;
         Busy = true;
+        LastBlocker = null;
         StateChanged?.Invoke();
 
         await _gate.WaitAsync();
         try
         {
             var change = Targets.Where(d => d.Enabled == off).Select(d => d.Id).ToList();
-            if (change.Count > 0)
+            // Turning on always asks the helper, so it can restart anything it stopped to free a camera.
+            if (change.Count > 0 || !off)
             {
-                var response = await SendAsync(new CameraRequest { Command = "set", Enable = !off, Ids = change });
+                var response = await SendAsync(new CameraRequest
+                {
+                    Command = closeProcessId != 0 ? "close-and-set" : "set",
+                    Enable = !off,
+                    Ids = change,
+                    CloseProcessId = closeProcessId,
+                });
                 Apply(response, fromSet: true);
             }
         }
@@ -139,6 +155,7 @@ public sealed class CameraService : IDisposable
         if (fromSet)
         {
             LastError = response.Ok ? null : response.Error;
+            LastBlocker = response.Ok ? null : response.Blocker;
             NeedsRestart = response.NeedsRestart;
         }
 

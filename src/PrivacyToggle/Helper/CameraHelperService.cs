@@ -111,20 +111,43 @@ public sealed class CameraHelperService : ServiceBase
         var response = new CameraResponse { Ok = true };
         try
         {
-            if (request.Command.Equals("set", StringComparison.OrdinalIgnoreCase))
+            bool close = request.Command.Equals("close-and-set", StringComparison.OrdinalIgnoreCase);
+            if (close || request.Command.Equals("set", StringComparison.OrdinalIgnoreCase))
             {
+                var ids = request.Ids.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 var errors = new List<string>();
-                foreach (var id in request.Ids.Distinct(StringComparer.OrdinalIgnoreCase))
+
+                // Close the blocking program first (only the one Windows logged as blocking these cameras).
+                if (close && !request.Enable)
                 {
-                    var error = CameraDevices.SetEnabled(id, request.Enable, out bool restart);
-                    if (error != null) errors.Add(error);
-                    else DisabledLedger.Record(id, disabled: !request.Enable);
-                    response.NeedsRestart |= restart;
+                    string? closeError = "That program is no longer blocking the camera.";
+                    foreach (var id in ids)
+                    {
+                        closeError = Blockers.Close(id, request.CloseProcessId);
+                        if (closeError == null) break;
+                    }
+                    if (closeError != null) errors.Add(closeError);
+                    else Thread.Sleep(500); // give Windows a moment to see the handle closed
                 }
+
+                if (errors.Count == 0)
+                {
+                    foreach (var id in ids)
+                    {
+                        var error = CameraDevices.SetEnabled(id, request.Enable, out bool restart, out var blocker);
+                        if (error != null) errors.Add(error);
+                        else DisabledLedger.Record(id, disabled: !request.Enable);
+                        response.NeedsRestart |= restart;
+                        response.Blocker ??= blocker;
+                    }
+                    // Programs stopped to free the camera get their camera back now.
+                    if (request.Enable && errors.Count == 0) StoppedServices.RestartAll();
+                }
+
                 if (errors.Count > 0)
                 {
                     response.Ok = false;
-                    response.Error = string.Join("; ", errors);
+                    response.Error = string.Join(" ", errors.Distinct());
                 }
             }
             response.Devices = CameraDevices.List();

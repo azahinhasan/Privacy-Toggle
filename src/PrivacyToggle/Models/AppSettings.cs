@@ -39,4 +39,5 @@ public sealed class AppSettings
     public List<string> SelectedCameraIds { get; set; } = new();
     public bool EnforceCameraOff { get; set; } = true;
     public bool ShowCameraTrayIcon { get; set; } = true;
+    public bool ShowMicTrayIcon { get; set; } = true;
 }

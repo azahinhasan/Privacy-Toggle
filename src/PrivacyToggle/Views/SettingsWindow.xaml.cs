@@ -106,6 +106,7 @@ public partial class SettingsWindow : Window
         // general
         StartWithWindowsBox.IsChecked = S.StartWithWindows;
         StartMinimizedBox.IsChecked = S.StartMinimized;
+        MicTrayBox.IsChecked = S.ShowMicTrayIcon;
         CamTrayBox.IsChecked = S.ShowCameraTrayIcon;
         DoubleClickBox.IsChecked = S.DoubleClickOpensSettings;
 
@@ -126,6 +127,7 @@ public partial class SettingsWindow : Window
             ? $"Press {S.Hotkey} once to mute and again to unmute."
             : $"Microphones stay muted and are live only while you hold {S.Hotkey}. The key press is not passed on to other apps.";
         CamHotkeyHint.Text = $"Press {S.CameraHotkey} to turn the camera off, and again to turn it back on.";
+        NoTrayWarning.Visibility = !S.ShowMicTrayIcon && !S.ShowCameraTrayIcon ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---------------- status ----------------
@@ -385,10 +387,18 @@ public partial class SettingsWindow : Window
         _app.SetStartWithWindows(StartWithWindowsBox.IsChecked == true);
     }
 
+    private void MicTray_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _app.SetShowMicTrayIcon(MicTrayBox.IsChecked == true);
+        UpdateDependentControls();
+    }
+
     private void CamTray_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
         _app.SetShowCameraTrayIcon(CamTrayBox.IsChecked == true);
+        UpdateDependentControls();
     }
 
     private void DoubleClick_Changed(object sender, RoutedEventArgs e)

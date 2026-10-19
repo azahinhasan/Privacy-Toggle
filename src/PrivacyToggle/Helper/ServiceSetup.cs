@@ -52,7 +52,8 @@ internal static class ServiceSetup
 
         // Turn back on every camera PrivacyToggle turned off, so none stays disabled after uninstall.
         foreach (var id in DisabledLedger.Load())
-            CameraDevices.SetEnabled(id, true, out _);
+            CameraDevices.SetEnabled(id, true, out _, out _);
+        StoppedServices.RestartAll();
         DisabledLedger.Delete();
 
         RemoveService();
