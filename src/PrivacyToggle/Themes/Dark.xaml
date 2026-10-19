@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBg" Color="#1C1D22" />
+    <SolidColorBrush x:Key="SidebarBg" Color="#16171B" />
+    <SolidColorBrush x:Key="CardBg" Color="#26272E" />
+    <SolidColorBrush x:Key="CardBorder" Color="#32343C" />
+    <SolidColorBrush x:Key="Divider" Color="#30323A" />
+    <SolidColorBrush x:Key="TextPrimary" Color="#ECEDF1" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#A0A4B0" />
+    <SolidColorBrush x:Key="Accent" Color="#7C7CF0" />
+    <SolidColorBrush x:Key="AccentHover" Color="#8E8EF5" />
+    <SolidColorBrush x:Key="AccentText" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="HoverBg" Color="#24252B" />
+    <SolidColorBrush x:Key="SelectedBg" Color="#2C2D35" />
+    <SolidColorBrush x:Key="ControlBg" Color="#1F2026" />
+    <SolidColorBrush x:Key="ControlBorder" Color="#454852" />
+    <SolidColorBrush x:Key="ToggleOffBg" Color="#1F2026" />
+    <SolidColorBrush x:Key="ToggleOffBorder" Color="#8A8E99" />
+    <SolidColorBrush x:Key="ToggleOffThumb" Color="#C3C6CF" />
+    <SolidColorBrush x:Key="Warning" Color="#F59E0B" />
+    <SolidColorBrush x:Key="LiveColor" Color="#22C55E" />
+    <SolidColorBrush x:Key="MutedColor" Color="#EF4444" />
+    <SolidColorBrush x:Key="NoneColor" Color="#9CA3AF" />
+</ResourceDictionary>

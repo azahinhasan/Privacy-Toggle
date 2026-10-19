@@ -1,0 +1,25 @@
+<Window x:Class="PrivacyToggle.Views.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PrivacyToggle overlay" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Focusable="False"
+        ResizeMode="NoResize" SizeToContent="WidthAndHeight" IsHitTestVisible="False">
+    <Border CornerRadius="14" Background="#E6DC2626" Padding="10,5,14,5" Margin="4">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.35" />
+        </Border.Effect>
+        <StackPanel Orientation="Horizontal">
+            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="White" Data="M9,3 a3,3 0 0 1 6,0 v8 a3,3 0 0 1 -6,0 z" Canvas.Top="1" />
+                    <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Data="M5,11 a7,7 0 0 0 14,0 M12,18 v3 M8.5,21.5 h7" />
+                    <Path Stroke="#DC2626" StrokeThickness="4.5" Data="M4,4 L20,20" />
+                    <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
+                </Canvas>
+            </Viewbox>
+            <TextBlock Text="MIC OFF" Foreground="White" FontWeight="Bold" FontSize="12" Margin="7,0,0,0"
+                       VerticalAlignment="Center" />
+        </StackPanel>
+    </Border>
+</Window>
