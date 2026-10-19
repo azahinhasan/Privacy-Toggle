@@ -28,10 +28,10 @@
 - **Feedback:** click sounds, Windows notifications, and on-screen `MIC OFF` / `CAM OFF` badges that let clicks pass through.
 
 ## Screenshots
-<img width="500" height="380" alt="Screenshot 2026-10-19 150231" src="https://github.com/user-attachments/assets/210def11-5a7b-4672-b62c-cfe3b02dedd1" />
-<img width="500" height="380" alt="Screenshot 2026-10-19 150343" src="https://github.com/user-attachments/assets/31d476dc-882c-4fcd-a09b-43403039d065" />
-<img width="500" height="380" alt="Screenshot 2026-10-19 150327" src="https://github.com/user-attachments/assets/d8d8bffe-9165-4f32-a98a-25b696e798aa" />
-<img width="500" height="380" alt="Screenshot 2026-10-19 150308" src="https://github.com/user-attachments/assets/7302edd3-1149-4398-9d1f-d5c5a259bd58" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150231" src="https://github.com/user-attachments/assets/210def11-5a7b-4672-b62c-cfe3b02dedd1" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150343" src="https://github.com/user-attachments/assets/31d476dc-882c-4fcd-a09b-43403039d065" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150327" src="https://github.com/user-attachments/assets/d8d8bffe-9165-4f32-a98a-25b696e798aa" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150308" src="https://github.com/user-attachments/assets/7302edd3-1149-4398-9d1f-d5c5a259bd58" />
 
 
 ## Usage
