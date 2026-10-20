@@ -24,6 +24,17 @@ public sealed class UsageSession
     public DateTime? End { get; set; }    // UTC; null = in use now
 }
 
+/// <summary>
+/// A time range during which a device was blocked (every microphone muted / every camera off).
+/// Apps may still hold the device then, but they get silence or nothing, so it doesn't count as use.
+/// </summary>
+public sealed class BlockedRange
+{
+    public UsageDevice Device { get; set; }
+    public DateTime Start { get; set; }   // UTC
+    public DateTime? End { get; set; }    // UTC; null = still blocked
+}
+
 /// <summary>A time range during which PrivacyToggle was running and recording.</summary>
 public sealed class RecordedRange
 {
@@ -66,6 +77,10 @@ public sealed class UsageTracker : IDisposable
         _filePath = Path.Combine(folder, "usage.json");
         Load();
 
+        // A block still open from last time ended when PrivacyToggle stopped watching (unknown after that).
+        var lastSeen = _history.Recorded.Count > 0 ? _history.Recorded.Max(r => r.End) : DateTime.UtcNow;
+        foreach (var b in _history.Blocked.Where(b => b.End == null)) b.End = lastSeen;
+
         var now = DateTime.UtcNow;
         _currentRange = new RecordedRange { Start = now, End = now };
         _history.Recorded.Add(_currentRange);
@@ -85,6 +100,19 @@ public sealed class UsageTracker : IDisposable
 
     public IReadOnlyList<UsageSession> Sessions => _history.Sessions;
     public IReadOnlyList<RecordedRange> Recorded => _history.Recorded;
+    public IReadOnlyList<BlockedRange> Blocked => _history.Blocked;
+
+    /// <summary>Records that a device became blocked (all muted / all off) or available again.</summary>
+    public void SetBlocked(UsageDevice device, bool blocked)
+    {
+        var open = _history.Blocked.FirstOrDefault(b => b.Device == device && b.End == null);
+        if (blocked == (open != null)) return;
+        if (blocked) _history.Blocked.Add(new BlockedRange { Device = device, Start = DateTime.UtcNow });
+        else open!.End = DateTime.UtcNow;
+        _dirty = true;
+        Save();
+        Changed?.Invoke();
+    }
 
     // ---------------- scanning ----------------
 
@@ -261,6 +289,7 @@ public sealed class UsageTracker : IDisposable
     {
         public List<UsageSession> Sessions { get; set; } = new();
         public List<RecordedRange> Recorded { get; set; } = new();
+        public List<BlockedRange> Blocked { get; set; } = new();
     }
 
     private void Load()
@@ -282,6 +311,7 @@ public sealed class UsageTracker : IDisposable
         var cutoff = DateTime.UtcNow - Retention;
         _history.Sessions.RemoveAll(s => s.End != null && s.End < cutoff);
         _history.Recorded.RemoveAll(r => r.End < cutoff);
+        _history.Blocked.RemoveAll(b => b.End != null && b.End < cutoff);
     }
 
     private void Save()

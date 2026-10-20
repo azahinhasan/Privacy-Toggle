@@ -26,8 +26,8 @@
                    Text="Which apps use your microphone and camera, as recorded by Windows." />
 
         <!-- ============ Summary tiles ============ -->
-        <UniformGrid x:Name="Tiles" Columns="4" Margin="-6,0,-6,14">
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0">
+        <UniformGrid x:Name="Tiles" Columns="4" Margin="-6,0,-6,2">
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <ContentControl x:Name="MicTileGlyph" Focusable="False" />
@@ -36,7 +36,7 @@
                     <TextBlock x:Name="MicToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0">
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <ContentControl x:Name="CamTileGlyph" Focusable="False" />
@@ -45,13 +45,13 @@
                     <TextBlock x:Name="CamToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0">
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Hint}" Text="Apps used today" />
                     <TextBlock x:Name="AppsToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0">
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Hint}" Text="Last access" />
                     <TextBlock x:Name="LastApp" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
@@ -86,6 +86,7 @@
                     <TextBlock Style="{StaticResource Hint}" Margin="10,0,0,0" FontSize="13"
                                Text="Nothing is using your microphone or camera right now." />
                 </StackPanel>
+                <TextBlock x:Name="BlockedNote" Style="{StaticResource Hint}" Margin="18,0,0,8" Visibility="Collapsed" />
             </StackPanel>
         </Border>
 
@@ -106,7 +107,7 @@
                 <RadioButton x:Name="Range24h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="24h" Checked="Range_Checked" />
                 <RadioButton x:Name="Range7d" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="7d" Checked="Range_Checked" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <RadioButton x:Name="ViewTimeline" Style="{StaticResource SegmentSmall}" GroupName="ActView" Content="Timeline" IsChecked="True" Checked="View_Checked" />
                 <RadioButton x:Name="ViewList" Style="{StaticResource SegmentSmall}" GroupName="ActView" Content="List" Margin="0" Checked="View_Checked" />
             </StackPanel>

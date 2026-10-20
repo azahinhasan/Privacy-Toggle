@@ -81,6 +81,7 @@ public sealed class AppController : IDisposable
         });
 
         Usage = new UsageTracker(_dispatcher, Settings.FolderPath);
+        UpdateBlocked();
 
         // The Run key is the source of truth (the installer may have created it);
         // while the option is on, keep its path pointing at this EXE.
@@ -332,8 +333,29 @@ public sealed class AppController : IDisposable
             S.LastMuted = Mic.DesiredMuted;
             Settings.Save();
         }
+        UpdateBlocked();
         UpdateVisuals();
         StateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Tells the usage tracker when a device is fully blocked: every microphone muted / every camera off.
+    /// Apps holding a blocked device get silence or nothing, so that time isn't counted as use.
+    /// (If only some mics are muted, an app could still hear through another one, so that still counts.)
+    /// </summary>
+    private void UpdateBlocked()
+    {
+        if (Usage == null) return;
+        if (Mic != null)
+        {
+            var mics = Mic.Devices;
+            Usage.SetBlocked(UsageDevice.Microphone, mics.Count > 0 && mics.All(d => d.Muted));
+        }
+        if (Camera != null && Camera.State != CameraState.Unavailable && !Camera.Busy)
+        {
+            var cams = Camera.Devices;
+            Usage.SetBlocked(UsageDevice.Camera, cams.Count > 0 && cams.All(d => !d.Enabled));
+        }
     }
 
     // ---------------- camera actions ----------------
@@ -385,6 +407,7 @@ public sealed class AppController : IDisposable
             S.LastCameraOff = Camera.DesiredOff;
             Settings.Save();
         }
+        UpdateBlocked();
         UpdateVisuals();
         StateChanged?.Invoke();
     }

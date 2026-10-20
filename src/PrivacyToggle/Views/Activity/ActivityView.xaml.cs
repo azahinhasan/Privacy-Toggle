@@ -72,7 +72,7 @@ public partial class ActivityView : UserControl
         if (!_rangeChosen)
         {
             // Open on the smallest range that holds all of today's activity.
-            _range = ActivityModel.DefaultRange(_usage.Sessions, DateTime.Now);
+            _range = ActivityModel.DefaultRange(_usage.Sessions, _usage.Blocked, DateTime.Now);
             _rangeChosen = true;
         }
         SyncRangeButtons();
@@ -159,7 +159,7 @@ public partial class ActivityView : UserControl
         RefreshLive(sessions, now);
 
         var from = now - ActivityModel.Length(_range);
-        var apps = ActivityModel.Build(sessions, from, now, _filter, _sort);
+        var apps = ActivityModel.Build(sessions, _usage.Blocked, from, now, _filter, _sort);
         bool list = ViewList.IsChecked == true;
 
         if (apps.Count == 0)
@@ -206,7 +206,7 @@ public partial class ActivityView : UserControl
 
     private void RefreshTiles(IReadOnlyList<UsageSession> sessions, DateTime now)
     {
-        var t = ActivityModel.Today(sessions, now);
+        var t = ActivityModel.Today(sessions, _usage!.Blocked, now);
         MicToday.Text = t.Mic == TimeSpan.Zero ? "None" : ActivityModel.Short(t.Mic);
         CamToday.Text = t.Camera == TimeSpan.Zero ? "None" : ActivityModel.Short(t.Camera);
         AppsToday.Text = t.Apps.ToString();
@@ -237,10 +237,12 @@ public partial class ActivityView : UserControl
     {
         LiveList.Items.Clear();
         _liveCounters.Clear();
-        var live = sessions.Where(s => s.End == null).GroupBy(s => s.AppKey).OrderBy(g => g.Min(s => s.Start)).ToList();
-        foreach (var app in live)
+        // Only real use: apps holding a muted mic / disabled camera are left out.
+        var live = ActivityModel.LiveNow(sessions, _usage!.Blocked, now);
+        foreach (var (appKey, spans) in live)
         {
-            var identity = AppIdentity.For(app.Key);
+            var app = spans;
+            var identity = AppIdentity.For(appKey);
             var grid = new Grid { Margin = new Thickness(0, 8, 0, 8) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -265,7 +267,7 @@ public partial class ActivityView : UserControl
             var chips = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             foreach (var s in app.OrderBy(s => s.Device))
             {
-                var start = s.Start.ToLocalTime();
+                var start = s.Start; // already local; after an unmute this is when the app could hear again
                 var chip = Chip(s.Device, ActivityModel.Clock(now - start), out var counter, large: true);
                 chip.ToolTip = $"{ActivityModel.Name(s.Device)} in use since {start:t}";
                 _liveCounters.Add((counter, start));
@@ -276,6 +278,25 @@ public partial class ActivityView : UserControl
             LiveList.Items.Add(grid);
         }
         LiveEmpty.Visibility = live.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // Apps that hold a blocked device: say so, so an empty list isn't confusing.
+        var liveKeys = live.Select(l => l.AppKey).ToHashSet();
+        var notes = new List<string>();
+        foreach (var device in new[] { UsageDevice.Microphone, UsageDevice.Camera })
+        {
+            bool blocked = _usage.Blocked.Any(b => b.Device == device && b.End == null);
+            if (!blocked) continue;
+            var holders = sessions.Where(s => s.End == null && s.Device == device)
+                .Select(s => AppIdentity.For(s.AppKey).Name).Distinct().ToList();
+            if (holders.Count == 0) continue;
+            string who = holders.Count == 1 ? holders[0] : $"{holders[0]} and {holders.Count - 1} other app{(holders.Count > 2 ? "s" : "")}";
+            string verb = holders.Count == 1 ? "has" : "have";
+            notes.Add(device == UsageDevice.Microphone
+                ? $"{who} {verb} the microphone open, but it's muted, so they hear nothing."
+                : $"{who} {verb} the camera open, but it's off, so they see nothing.");
+        }
+        BlockedNote.Text = string.Join("\n", notes);
+        BlockedNote.Visibility = notes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static FrameworkElement PulsingDot(string brushKey)

@@ -51,13 +51,9 @@ public static class ActivityModel
     };
 
     /// <summary>The smallest of 1h / 6h / 24h that contains all of today's activity.</summary>
-    public static ActivityRange DefaultRange(IEnumerable<UsageSession> sessions, DateTime now)
+    public static ActivityRange DefaultRange(IEnumerable<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked, DateTime now)
     {
-        var today = now.Date;
-        var starts = sessions
-            .Where(s => (s.End?.ToLocalTime() ?? now) > today)
-            .Select(s => Later(s.Start.ToLocalTime(), today))
-            .ToList();
+        var starts = Clip(sessions, blocked, now.Date, now).Select(s => s.Start).ToList();
         if (starts.Count == 0) return ActivityRange.Hours24;
         var span = now - starts.Min();
         return span <= TimeSpan.FromHours(1) ? ActivityRange.Hour1
@@ -65,20 +61,20 @@ public static class ActivityModel
              : ActivityRange.Hours24;
     }
 
-    public static List<AppActivity> Build(IEnumerable<UsageSession> sessions, DateTime from, DateTime now,
-        ActivityFilter filter, ActivitySort sort)
+    public static List<AppActivity> Build(IEnumerable<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked,
+        DateTime from, DateTime now, ActivityFilter filter, ActivitySort sort)
     {
         var dayAgo = now.AddHours(-24);
         var result = new List<AppActivity>();
         foreach (var app in sessions.Where(s => Matches(s.Device, filter)).GroupBy(s => s.AppKey))
         {
-            var spans = Merge(Clip(app, from, now));
+            var spans = Merge(Clip(app, blocked, from, now));
             if (spans.Count == 0) continue;
             result.Add(new AppActivity
             {
                 App = AppIdentity.For(app.Key),
                 Spans = spans,
-                Last24h = Merge(Clip(app, dayAgo, now)),
+                Last24h = Merge(Clip(app, blocked, dayAgo, now)),
                 Mic = Union(spans.Where(s => s.Device == UsageDevice.Microphone)),
                 Camera = Union(spans.Where(s => s.Device == UsageDevice.Camera)),
                 LastActive = spans.Max(s => s.End),
@@ -94,40 +90,86 @@ public static class ActivityModel
         };
     }
 
-    public static TodayStats Today(IReadOnlyList<UsageSession> sessions, DateTime now)
+    public static TodayStats Today(IReadOnlyList<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked, DateTime now)
     {
-        var today = now.Date;
-        var spans = sessions.SelectMany(s => Clip(new[] { s }, today, now).Select(sp => (s.AppKey, Span: sp))).ToList();
-        // Most recent access: anything in use now wins, then the latest end time.
-        var last = sessions.OrderByDescending(s => s.End == null)
-            .ThenByDescending(s => s.End ?? DateTime.MaxValue)
-            .ThenByDescending(s => s.Start)
+        var spans = sessions
+            .SelectMany(s => Clip(new[] { s }, blocked, now.Date, now).Select(sp => (s.AppKey, Span: sp)))
+            .ToList();
+
+        // Most recent real access (blocked time excluded): anything in use now wins, then the latest end.
+        var recent = sessions
+            .SelectMany(s => Clip(new[] { s }, blocked, now - Length(ActivityRange.Days7), now).Select(sp => (s.AppKey, Span: sp)))
+            .OrderByDescending(x => x.Span.Live)
+            .ThenByDescending(x => x.Span.End)
+            .Select(x => ((string AppKey, UsageSpan Span)?)x)
             .FirstOrDefault();
-        DateTime? lastTime = last == null ? null : last.End == null ? now : last.End.Value.ToLocalTime();
 
         return new TodayStats(
             Union(spans.Where(x => x.Span.Device == UsageDevice.Microphone).Select(x => x.Span)),
             Union(spans.Where(x => x.Span.Device == UsageDevice.Camera).Select(x => x.Span)),
             spans.Select(x => x.AppKey).Distinct().Count(),
-            last == null ? null : AppIdentity.For(last.AppKey),
-            lastTime,
-            last?.Device,
-            last != null && last.End == null);
+            recent == null ? null : AppIdentity.For(recent.Value.AppKey),
+            recent?.Span.End,
+            recent?.Span.Device,
+            recent?.Span.Live == true);
     }
+
+    /// <summary>
+    /// What is really in use right now: per app, its live spans (blocked time removed). An app holding a
+    /// muted microphone isn't listed; once the mic is unmuted it is, timed from the unmute.
+    /// </summary>
+    public static List<(string AppKey, List<UsageSpan> Spans)> LiveNow(IReadOnlyList<UsageSession> sessions,
+        IReadOnlyList<BlockedRange> blocked, DateTime now) =>
+        sessions.Where(s => s.End == null)
+            .GroupBy(s => s.AppKey)
+            .Select(g => (g.Key, Spans: Clip(g, blocked, now - Length(ActivityRange.Days7), now).Where(s => s.Live).ToList()))
+            .Where(x => x.Spans.Count > 0)
+            .OrderBy(x => x.Spans.Min(s => s.Start))
+            .ToList();
 
     public static bool Matches(UsageDevice device, ActivityFilter filter) =>
         filter == ActivityFilter.All ||
         (filter == ActivityFilter.Microphone) == (device == UsageDevice.Microphone);
 
-    private static IEnumerable<UsageSpan> Clip(IEnumerable<UsageSession> sessions, DateTime from, DateTime now)
+    /// <summary>
+    /// Sessions as local spans inside [from, now], minus the time their device was blocked
+    /// (an app holding a muted mic or a disabled camera gets nothing, so it isn't using it).
+    /// </summary>
+    private static IEnumerable<UsageSpan> Clip(IEnumerable<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked,
+        DateTime from, DateTime now)
     {
         foreach (var s in sessions)
         {
             var start = s.Start.ToLocalTime();
             var end = s.End?.ToLocalTime() ?? now;
             if (end <= from || start >= now) continue;
-            yield return new UsageSpan(Later(start, from), end > now ? now : end, s.Device, s.End == null);
+            start = Later(start, from);
+            if (end > now) end = now;
+
+            // Cut out every blocked stretch of this device.
+            var pieces = new List<(DateTime S, DateTime E)> { (start, end) };
+            foreach (var b in blocked.Where(b => b.Device == s.Device))
+            {
+                var bs = b.Start.ToLocalTime();
+                var be = b.End?.ToLocalTime() ?? now;
+                if (be <= start || bs >= end) continue;
+                pieces = pieces.SelectMany(p => Cut(p, bs, be)).ToList();
+            }
+
+            foreach (var (ps, pe) in pieces)
+            {
+                if (pe - ps < TimeSpan.FromSeconds(1)) continue;
+                // Still live only if this piece runs up to now (not cut short by a block).
+                yield return new UsageSpan(ps, pe, s.Device, s.End == null && pe >= now);
+            }
         }
+    }
+
+    private static IEnumerable<(DateTime S, DateTime E)> Cut((DateTime S, DateTime E) p, DateTime bs, DateTime be)
+    {
+        if (be <= p.S || bs >= p.E) { yield return p; yield break; }
+        if (bs > p.S) yield return (p.S, bs);
+        if (be < p.E) yield return (be, p.E);
     }
 
     /// <summary>Per device, joins sessions that overlap or are less than <see cref="MergeGap"/> apart.</summary>

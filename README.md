@@ -8,7 +8,7 @@
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows)
 ![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet)
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
+[![Latest release](https://img.shields.io/github/v/release/azahinhasan/Privacy-Toggle?label=version&color=blue)](https://github.com/azahinhasan/Privacy-Toggle/releases/latest)
 
 </div>
 
