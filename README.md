@@ -17,7 +17,7 @@
 | 🎙️ **Microphone** | <img src="docs/icon-on.png" alt="on" width="32"> | <img src="docs/icon-off.png" alt="off" width="32"> | <img src="docs/icon-none.png" alt="none" width="32"> | `Ctrl+Alt+M` |
 | 📷 **Camera** | <img src="docs/icon-cam-on.png" alt="on" width="32"> | <img src="docs/icon-cam-off.png" alt="off" width="32"> | <img src="docs/icon-cam-none.png" alt="none" width="32"> | `Ctrl+Alt+V` |
 
-## ✨ Features
+## Features
 
 - **System-wide mic mute.** No app (Zoom, Discord, Teams, browsers, OBS…) gets any audio while muted.
 - **Real camera off.** Disables the webcam in Windows, like Device Manager does. Apps lose the picture at once and can't reopen it. If a program won't let go, PrivacyToggle tells you which one and asks before closing it.
@@ -27,7 +27,14 @@
 - **Activity monitor.** See which apps are using the camera or microphone right now, plus a 24-hour timeline of every app that used them. History (7 days) stays on your PC in `%AppData%\PrivacyToggle\usage.json`.
 - **Feedback:** click sounds, Windows notifications, and on-screen `MIC OFF` / `CAM OFF` badges that let clicks pass through.
 
-## 🖱️ Usage
+## Screenshots
+<img width="400" height="280" alt="Screenshot 2026-10-19 150231" src="https://github.com/user-attachments/assets/210def11-5a7b-4672-b62c-cfe3b02dedd1" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150343" src="https://github.com/user-attachments/assets/31d476dc-882c-4fcd-a09b-43403039d065" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150327" src="https://github.com/user-attachments/assets/d8d8bffe-9165-4f32-a98a-25b696e798aa" />
+<img width="400" height="280" alt="Screenshot 2026-10-19 150308" src="https://github.com/user-attachments/assets/7302edd3-1149-4398-9d1f-d5c5a259bd58" />
+
+
+## Usage
 
 - **Left-click** a tray icon to switch it. **Right-click** for both controls, Settings and Exit.
 - Open **Settings** to change shortcuts, start state, devices, feedback, and which tray icons show. Changes save instantly to `%AppData%\PrivacyToggle\settings.json`.
