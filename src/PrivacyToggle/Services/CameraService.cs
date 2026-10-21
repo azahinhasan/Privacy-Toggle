@@ -139,6 +139,12 @@ public sealed class CameraService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether an app is using a camera right now (through Windows' camera Frame Server).
+    /// Null when the helper isn't running or is too old to tell.
+    /// </summary>
+    public async Task<bool?> InUseAsync() => (await SendAsync(new CameraRequest { Command = "in-use" }))?.InUse;
+
     private void Apply(CameraResponse? response, bool fromSet)
     {
         if (_disposed) return;

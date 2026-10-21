@@ -111,6 +111,12 @@ public sealed class CameraHelperService : ServiceBase
         var response = new CameraResponse { Ok = true };
         try
         {
+            if (request.Command.Equals("in-use", StringComparison.OrdinalIgnoreCase))
+            {
+                response.InUse = CameraActivity.InUse();
+                return response;
+            }
+
             bool close = request.Command.Equals("close-and-set", StringComparison.OrdinalIgnoreCase);
             if (close || request.Command.Equals("set", StringComparison.OrdinalIgnoreCase))
             {

@@ -61,8 +61,9 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; \
 Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated skipifdoesntexist runasoriginaluser
 Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Setting up camera control..."; \
     Flags: runhidden waituntilterminated
-; Start the tray app as the signed-in user, not elevated, with Settings open (--show ignores "Start minimized").
-Filename: "{app}\{#AppExe}"; Parameters: "--show"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; Start the tray app as the signed-in user, not elevated, with Settings open (--show ignores "Start minimized")
+; and its tray icons on the taskbar rather than in the overflow menu (--promote-tray).
+Filename: "{app}\{#AppExe}"; Parameters: "--show --promote-tray"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
 ; In-app updates run setup silently with /relaunch=1: start the updated app again afterwards.
 Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 

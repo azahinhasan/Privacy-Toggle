@@ -29,7 +29,7 @@ public sealed class BlockerInfo
 
 public sealed class CameraRequest
 {
-    /// <summary>"list", "set", or "close-and-set" (close <see cref="CloseProcessId"/>, then set).</summary>
+    /// <summary>"list", "set", "close-and-set" (close <see cref="CloseProcessId"/>, then set), or "in-use".</summary>
     public string Command { get; set; } = "list";
     public bool Enable { get; set; }
     public List<string> Ids { get; set; } = new();
@@ -46,6 +46,9 @@ public sealed class CameraResponse
 
     /// <summary>Set when turning off failed because a program holds the camera.</summary>
     public BlockerInfo? Blocker { get; set; }
+
+    /// <summary>For "in-use": whether an app is using a camera through Windows' Frame Server right now.</summary>
+    public bool? InUse { get; set; }
 
     public List<CameraDevice> Devices { get; set; } = new();
 }

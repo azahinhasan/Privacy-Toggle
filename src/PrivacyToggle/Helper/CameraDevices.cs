@@ -20,6 +20,19 @@ internal static class CameraDevices
         return result.OrderBy(d => d.Name).ToList();
     }
 
+    /// <summary>Kernel device object names (like \Device\0000006d) of the enabled cameras.</summary>
+    public static List<string> DeviceObjectNames()
+    {
+        var result = new List<string>();
+        Enumerate((set, data, device) =>
+        {
+            if (device.Enabled && GetProperty(set, ref data, SPDRP_PHYSICAL_DEVICE_OBJECT_NAME) is { Length: > 0 } name)
+                result.Add(name);
+            return false;
+        });
+        return result;
+    }
+
     /// <summary>
     /// Enables or disables one camera. Returns an error message, or null on success. When a program
     /// holds the camera open and refuses, <paramref name="blocker"/> says which one.
@@ -195,7 +208,8 @@ internal static class CameraDevices
     // ---------------- SetupAPI / CfgMgr ----------------
 
     private const uint DIGCF_PRESENT = 0x2;
-    private const uint SPDRP_DEVICEDESC = 0x0, SPDRP_SERVICE = 0x4, SPDRP_CONFIGFLAGS = 0xA, SPDRP_FRIENDLYNAME = 0xC;
+    private const uint SPDRP_DEVICEDESC = 0x0, SPDRP_SERVICE = 0x4, SPDRP_CONFIGFLAGS = 0xA, SPDRP_FRIENDLYNAME = 0xC,
+        SPDRP_PHYSICAL_DEVICE_OBJECT_NAME = 0xE;
     private const uint CONFIGFLAG_DISABLED = 0x1;
     private const uint DIF_PROPERTYCHANGE = 0x12;
     private const uint DICS_ENABLE = 1, DICS_FLAG_GLOBAL = 1;

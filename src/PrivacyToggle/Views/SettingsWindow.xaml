@@ -74,7 +74,15 @@
 
                 <StackPanel>
                     <RadioButton x:Name="NavOverview" Style="{StaticResource NavItem}" Content="Overview" IsChecked="True" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavActivity" Style="{StaticResource NavItem}" Content="Activity" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavActivity" Style="{StaticResource NavItem}" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Activity" VerticalAlignment="Center" />
+                            <Border Margin="8,0,0,0" Padding="5,0,5,1" CornerRadius="4" VerticalAlignment="Center"
+                                    BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="#C9B6FF">
+                                <TextBlock Text="BETA" FontSize="9" FontWeight="Black" Foreground="#111111" />
+                            </Border>
+                        </StackPanel>
+                    </RadioButton>
                     <RadioButton x:Name="NavMic" Style="{StaticResource NavItem}" Content="Microphone" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavCamera" Style="{StaticResource NavItem}" Content="Camera" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavShortcuts" Style="{StaticResource NavItem}" Content="Shortcuts" Checked="Nav_Checked" />

@@ -28,6 +28,12 @@ public static class Program
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(CameraDevices.List(), CameraProtocol.Json));
             return 0;
         }
+        // Diagnostics: whether an app is using a camera through Frame Server (needs admin, like the helper).
+        if (Has("--camera-in-use"))
+        {
+            Console.WriteLine(CameraActivity.InUse() ? "in use" : "idle");
+            return 0;
+        }
 
         var app = new App();
         app.InitializeComponent();

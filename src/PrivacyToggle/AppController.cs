@@ -54,7 +54,8 @@ public sealed class AppController : IDisposable
 
     /// <param name="minimizedArg">--minimized: start in the tray only (Windows startup).</param>
     /// <param name="showArg">--show: always open Settings, even with "Start minimized" on (used by the installer).</param>
-    public void Start(bool minimizedArg, bool showArg = false)
+    /// <param name="promoteTrayArg">--promote-tray: show the tray icons on the taskbar instead of the overflow (used by the installer).</param>
+    public void Start(bool minimizedArg, bool showArg = false, bool promoteTrayArg = false)
     {
         Settings.Load();
         ThemeService.Initialize(S.Theme);
@@ -82,7 +83,7 @@ public sealed class AppController : IDisposable
             _ => S.LastCameraOff,
         });
 
-        Usage = new UsageTracker(_dispatcher, Settings.FolderPath);
+        Usage = new UsageTracker(_dispatcher, Settings.FolderPath) { CameraInUse = Camera.InUseAsync };
         UpdateBlocked();
 
         // The Run key is the source of truth (the installer may have created it);
@@ -92,6 +93,7 @@ public sealed class AppController : IDisposable
         Settings.Save();
 
         UpdateTrays();
+        if (promoteTrayArg) PromoteTrayIcons();
 
         Hotkeys = new HotkeyService();
         Hotkeys.Pressed += id =>
@@ -194,6 +196,36 @@ public sealed class AppController : IDisposable
         var bytes = System.Security.Cryptography.MD5.HashData(
             System.Text.Encoding.UTF8.GetBytes($"PrivacyToggle|{name}|{Environment.ProcessPath}".ToUpperInvariant()));
         return new Guid(bytes);
+    }
+
+    /// <summary>
+    /// Windows 11 puts new tray icons in the overflow menu. Explorer keeps each icon's choice in
+    /// HKCU\Control Panel\NotifyIconSettings\&lt;n&gt; (IconGuid = our tray ID, IsPromoted = 1 shows it on the
+    /// taskbar) and applies changes live. Explorer writes the entry shortly after the icon is added, so retry
+    /// for a few seconds. Only done after installing; later the user's own choice is left alone.
+    /// </summary>
+    private void PromoteTrayIcons()
+    {
+        var pending = new HashSet<Guid> { StableTrayId("microphone"), StableTrayId("camera") };
+        int attempts = 0;
+        var timer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromMilliseconds(500) };
+        timer.Tick += (_, _) =>
+        {
+            try
+            {
+                using var root = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Control Panel\NotifyIconSettings");
+                if (root == null) { timer.Stop(); return; } // Windows 10: no such setting
+                foreach (var name in root.GetSubKeyNames())
+                {
+                    using var entry = root.OpenSubKey(name, writable: true);
+                    if (entry?.GetValue("IconGuid") is string s && Guid.TryParse(s, out var id) && pending.Remove(id))
+                        entry.SetValue("IsPromoted", 1, Microsoft.Win32.RegistryValueKind.DWord);
+                }
+            }
+            catch { pending.Clear(); }
+            if (pending.Count == 0 || ++attempts >= 20) timer.Stop();
+        };
+        timer.Start();
     }
 
     private void ApplyClickMode()
