@@ -11,16 +11,14 @@
 [![Latest release](https://img.shields.io/github/v/release/azahinhasan/Privacy-Toggle?label=version&color=blue)](https://github.com/azahinhasan/Privacy-Toggle/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+| | Live | Off | None found | Shortcut(Default) |
+|---|:---:|:---:|:---:|:---:|
+| 🎙️ **Microphone** | <img src="docs/icon-on.png?v=1.3.0" alt="on" width="42"> | <img src="docs/icon-off.png?v=1.3.0" alt="off" width="42"> | <img src="docs/icon-none.png?v=1.3.0" alt="none" width="42"> | `Ctrl+Alt+M` |
+| 📷 **Camera** | <img src="docs/icon-cam-on.png?v=1.3.0" alt="on" width="42"> | <img src="docs/icon-cam-off.png?v=1.3.0" alt="off" width="42"> | <img src="docs/icon-cam-none.png?v=1.3.0" alt="none" width="42"> | `Ctrl+Alt+V` |
+
 </div>
 
-| | Live | Off | None found | Shortcut |
-|---|:---:|:---:|:---:|:---:|
-| 🎙️ **Microphone** | <img src="docs/icon-on.png?v=1.3.0" alt="on" width="32"> | <img src="docs/icon-off.png?v=1.3.0" alt="off" width="32"> | <img src="docs/icon-none.png?v=1.3.0" alt="none" width="32"> | `Ctrl+Alt+M` |
-| 📷 **Camera** | <img src="docs/icon-cam-on.png?v=1.3.0" alt="on" width="32"> | <img src="docs/icon-cam-off.png?v=1.3.0" alt="off" width="32"> | <img src="docs/icon-cam-none.png?v=1.3.0" alt="none" width="32"> | `Ctrl+Alt+V` |
 
-## Screenshots
-
-<!-- Add screenshots of the current (1.3.0) design here. -->
 
 ## Features
 
