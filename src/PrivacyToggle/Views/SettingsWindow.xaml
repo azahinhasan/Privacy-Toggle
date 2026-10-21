@@ -78,9 +78,17 @@
                     <RadioButton x:Name="NavMic" Style="{StaticResource NavItem}" Content="Microphone" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavCamera" Style="{StaticResource NavItem}" Content="Camera" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavShortcuts" Style="{StaticResource NavItem}" Content="Shortcuts" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavFeedback" Style="{StaticResource NavItem}" Content="Feedback" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" Content="General" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" Content="About" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="About" VerticalAlignment="Center" />
+                            <!-- shown when a newer release is out -->
+                            <Border x:Name="AboutUpdateBadge" Visibility="Collapsed" Margin="8,0,0,0" Padding="6,0,6,1" CornerRadius="4"
+                                    BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="{DynamicResource LiveFill}">
+                                <TextBlock Text="NEW" FontSize="10" FontWeight="Black" Foreground="#111111" />
+                            </Border>
+                        </StackPanel>
+                    </RadioButton>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -193,7 +201,34 @@
                             </StackPanel>
                         </CheckBox>
                     </Border>
-                </StackPanel>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Alerts" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="MicNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Notify me when the microphone mutes or unmutes" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A Windows notification each time you switch it. Not shown for push-to-talk presses." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="MicOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a MIC OFF badge while muted" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A small badge that stays on top of every app and lets clicks pass through." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="MicCornerPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="MicCornerTL" Style="{StaticResource Segment}" GroupName="MicCorner" Content="Top left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="MicCornerTR" Style="{StaticResource Segment}" GroupName="MicCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="MicCornerBL" Style="{StaticResource Segment}" GroupName="MicCorner" Content="Bottom left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="MicCornerBR" Style="{StaticResource Segment}" GroupName="MicCorner" Content="Bottom right" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>                </StackPanel>
             </ScrollViewer>
 
             <!-- Camera -->
@@ -246,6 +281,33 @@
                         </StackPanel>
                     </Border>
 
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Alerts" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="CamNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Notify me when the camera turns off or on" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A Windows notification each time you switch it." />
+                                </StackPanel>
+                            </CheckBox>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="CamOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a CAM OFF badge while off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A small badge that stays on top of every app and lets clicks pass through. If it shares a corner with the MIC OFF badge, they sit side by side." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="CamCornerPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="CamCornerTL" Style="{StaticResource Segment}" GroupName="CamCorner" Content="Top left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="CamCornerTR" Style="{StaticResource Segment}" GroupName="CamCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="CamCornerBL" Style="{StaticResource Segment}" GroupName="CamCorner" Content="Bottom left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="CamCornerBR" Style="{StaticResource Segment}" GroupName="CamCorner" Content="Bottom right" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
                                Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on. If a program holds the camera and won't let go, PrivacyToggle asks before closing it; a background service closed this way is started again when you turn the camera back on." />
                 </StackPanel>
@@ -285,39 +347,6 @@
                             <TextBlock x:Name="CamHotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
                             <TextBlock x:Name="CamHotkeyHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Feedback -->
-            <ScrollViewer x:Name="PageFeedback" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Feedback" />
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <CheckBox x:Name="NotificationBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Show a Windows notification on each switch" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Not shown for push-to-talk presses." />
-                                </StackPanel>
-                            </CheckBox>
-                            <Border Style="{StaticResource RowDivider}" />
-                            <CheckBox x:Name="OverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Overlay_Changed" Unchecked="Overlay_Changed">
-                                <StackPanel>
-                                    <TextBlock Text="Show an on-screen badge while off" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="Small red “MIC OFF” / “CAM OFF” badges that stay on top and let clicks pass through." />
-                                </StackPanel>
-                            </CheckBox>
-                            <StackPanel x:Name="CornerPanel" Margin="0,0,0,14">
-                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
-                                <WrapPanel>
-                                    <RadioButton x:Name="CornerTL" Style="{StaticResource Segment}" GroupName="Corner" Content="Top left" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerTR" Style="{StaticResource Segment}" GroupName="Corner" Content="Top right" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerBL" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom left" Checked="Overlay_Changed" />
-                                    <RadioButton x:Name="CornerBR" Style="{StaticResource Segment}" GroupName="Corner" Content="Bottom right" Checked="Overlay_Changed" />
-                                </WrapPanel>
-                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -428,6 +457,29 @@
                                 </TextBlock>
                             </StackPanel>
                         </Grid>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Updates" />
+                    <Border Style="{StaticResource Card}" Padding="18,16">
+                        <StackPanel>
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <Button x:Name="CheckUpdatesButton" Style="{StaticResource SubtleButton}" Content="Check again" Click="CheckUpdates_Click" />
+                                    <Button x:Name="UpdateButton" Style="{StaticResource AccentButton}" Content="Update now" Margin="12,0,4,4"
+                                            Visibility="Collapsed" Click="UpdateNow_Click" />
+                                </StackPanel>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="UpdateStatus" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" Text="Checking for updates…" />
+                                    <TextBlock x:Name="UpdateDetail" Style="{StaticResource Hint}" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                            <ProgressBar x:Name="UpdateProgress" Style="{StaticResource BrutalProgress}" Margin="0,14,0,0" Visibility="Collapsed" />
+                            <TextBlock x:Name="ReleaseLinkText" Margin="0,10,0,0" Visibility="Collapsed">
+                                <Hyperlink x:Name="ReleaseLink" RequestNavigate="Link_RequestNavigate" NavigateUri="https://github.com/azahinhasan/Privacy-Toggle/releases">
+                                    <Run x:Name="ReleaseLinkRun" Text="What's new" />
+                                </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>

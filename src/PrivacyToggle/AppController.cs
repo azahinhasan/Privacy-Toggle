@@ -19,7 +19,7 @@ public sealed class AppController : IDisposable
     private TaskbarIcon? _micTray, _camTray;
     private TrayMenu? _micMenu, _camMenu;
     private SettingsWindow? _settingsWindow;
-    private OverlayWindow? _overlay;
+    private readonly Dictionary<OverlayCorner, OverlayWindow> _overlays = new(); // badge windows, one per corner in use
     private bool _hotkeySuspended;
     private bool _disposed;
 
@@ -315,7 +315,7 @@ public sealed class AppController : IDisposable
         if (Mic.DesiredMuted == before && S.HotkeyMode == HotkeyMode.PushToTalk) return;
 
         if (S.PlaySound) Sounds.Play(Mic.DesiredMuted);
-        if (notify && S.ShowNotification)
+        if (notify && S.MicNotify)
         {
             Notify("PrivacyToggle", Mic.State switch
             {
@@ -391,7 +391,7 @@ public sealed class AppController : IDisposable
             Notify("Camera", "Couldn't switch the camera: " + Camera.LastError);
         else if (Camera.NeedsRestart)
             Notify("Camera", "Windows needs a restart to finish switching the camera.");
-        else if (S.ShowNotification)
+        else if (S.CamNotify)
             Notify("PrivacyToggle", Camera.State switch
             {
                 CameraState.NoDevice => "No camera found",
@@ -558,10 +558,13 @@ public sealed class AppController : IDisposable
         Camera.SetTargets(S.CameraDeviceMode, S.SelectedCameraIds);
     }
 
-    public void SetOverlay(bool show, OverlayCorner corner)
+    /// <summary>Saves a device's alert choices (notification, on-screen badge and its corner).</summary>
+    public void SetAlerts(UsageDevice device, bool notify, bool overlay, OverlayCorner corner)
     {
-        S.ShowOverlay = show;
-        S.OverlayCorner = corner;
+        if (device == UsageDevice.Microphone)
+            (S.MicNotify, S.MicOverlay, S.MicOverlayCorner) = (notify, overlay, corner);
+        else
+            (S.CamNotify, S.CamOverlay, S.CamOverlayCorner) = (notify, overlay, corner);
         Settings.Save();
         UpdateOverlay();
     }
@@ -588,20 +591,31 @@ public sealed class AppController : IDisposable
         _settingsWindow.Focus();
     }
 
+    /// <summary>
+    /// Shows each device's badge in its own corner. Badges that share a corner share one window
+    /// (side by side), so they never overlap.
+    /// </summary>
     private void UpdateOverlay()
     {
-        bool micOff = Mic?.State == MicState.Muted;
-        bool camOff = Camera?.State == CameraState.Off;
-        if (S.ShowOverlay && (micOff || camOff))
+        bool micBadge = S.MicOverlay && Mic?.State == MicState.Muted;
+        bool camBadge = S.CamOverlay && Camera?.State == CameraState.Off;
+
+        foreach (var corner in Enum.GetValues<OverlayCorner>())
         {
-            _overlay ??= new OverlayWindow();
-            _overlay.SetBadges(micOff, camOff);
-            _overlay.Place(S.OverlayCorner);
-            if (!_overlay.IsVisible) _overlay.Show();
-        }
-        else
-        {
-            _overlay?.Hide();
+            bool mic = micBadge && S.MicOverlayCorner == corner;
+            bool cam = camBadge && S.CamOverlayCorner == corner;
+            _overlays.TryGetValue(corner, out var window);
+            if (mic || cam)
+            {
+                if (window == null) _overlays[corner] = window = new OverlayWindow();
+                window.SetBadges(mic, cam);
+                window.Place(corner);
+                if (!window.IsVisible) window.Show();
+            }
+            else
+            {
+                window?.Hide();
+            }
         }
     }
 
@@ -615,7 +629,7 @@ public sealed class AppController : IDisposable
             Mic.SetMuted(false);
 
         _settingsWindow?.Close();
-        _overlay?.Close();
+        foreach (var window in _overlays.Values) window.Close();
         Hotkeys?.Dispose();
         PushToTalk?.Dispose();
         Mic?.Dispose();

@@ -6,7 +6,10 @@
 ; service, which turns cameras on/off for the tray app. The tray app itself runs without admin.
 
 #define AppName "PrivacyToggle"
-#define AppVersion "1.1.0"
+; build.ps1 passes /DAppVersion=<Version from PrivacyToggle.csproj>; this default is only for compiling by hand.
+#ifndef AppVersion
+  #define AppVersion "1.2.0"
+#endif
 #define AppExe "PrivacyToggle.exe"
 #define AppId "{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}"
 #define ServiceName "PrivacyToggleHelper"
@@ -56,12 +59,20 @@ Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Settin
     Flags: runhidden waituntilterminated
 ; Start the tray app as the signed-in user, not elevated.
 Filename: "{app}\{#AppExe}"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; In-app updates run setup silently with /relaunch=1: start the updated app again afterwards.
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 
 [UninstallRun]
 ; Turns back on any camera PrivacyToggle turned off, then removes the helper service.
 Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveHelper"
 
 [Code]
+// True when started by PrivacyToggle's in-app updater (setup.exe /SILENT /relaunch=1).
+function ShouldRelaunch(): Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;
+
 // Asks a running copy to quit cleanly (it removes its tray icon) and waits for it to exit.
 procedure CloseRunningApp(const ExePath: String);
 var

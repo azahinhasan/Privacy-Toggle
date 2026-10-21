@@ -32,10 +32,11 @@ public static class UpdateService
     private const string LatestApi = $"https://api.github.com/repos/{Repo}/releases/latest";
     private const string DownloadPrefix = $"https://github.com/{Repo}/releases/download/";
 
-    private static readonly HttpClient Http = CreateClient();
-
+    // Order matters: static initializers run top to bottom, and the HTTP client's User-Agent needs Current.
     /// <summary>Running version as major.minor.build.</summary>
     public static Version Current { get; } = Normalize(Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0));
+
+    private static readonly HttpClient Http = CreateClient();
 
     /// <summary>The most recent check, kept for this session so pages can show it without asking again.</summary>
     public static UpdateInfo? LastResult { get; private set; }

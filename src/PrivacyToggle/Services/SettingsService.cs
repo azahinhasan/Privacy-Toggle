@@ -40,12 +40,24 @@ public sealed class SettingsService
             Current.CameraHotkey ??= HotkeySetting.CameraDefault;
             Current.CameraHotkey.Modifiers ??= new();
             Current.SelectedCameraIds ??= new();
+            MigrateSharedAlerts(Current);
         }
         catch
         {
             // A broken file shouldn't stop the app; fall back to defaults.
             Current = new AppSettings();
         }
+    }
+
+    /// <summary>Before 1.2, notification and badge settings were shared; give both devices the old choice.</summary>
+    private static void MigrateSharedAlerts(AppSettings s)
+    {
+        if (s.ShowNotification is bool notify) s.MicNotify = s.CamNotify = notify;
+        if (s.ShowOverlay is bool overlay) s.MicOverlay = s.CamOverlay = overlay;
+        if (s.LegacyOverlayCorner is OverlayCorner corner) s.MicOverlayCorner = s.CamOverlayCorner = corner;
+        s.ShowNotification = null;
+        s.ShowOverlay = null;
+        s.LegacyOverlayCorner = null;
     }
 
     public void Save()

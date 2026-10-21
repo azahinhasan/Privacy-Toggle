@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -40,6 +41,7 @@ public partial class SettingsWindow : Window
         CamRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
 
         ActivityPage.Attach(_app.Usage);
+        _ = CheckForUpdatesAsync(); // quietly, so the About item can show "NEW"
 
         _app.StateChanged += RefreshStatus;
         _app.DevicesChanged += RefreshDevices;
@@ -118,14 +120,14 @@ public partial class SettingsWindow : Window
         ModeToggle.IsChecked = S.HotkeyMode == HotkeyMode.Toggle;
         ModePtt.IsChecked = S.HotkeyMode == HotkeyMode.PushToTalk;
 
-        // feedback
+        // alerts (per device) + sound
         PlaySoundBox.IsChecked = S.PlaySound;
-        NotificationBox.IsChecked = S.ShowNotification;
-        OverlayBox.IsChecked = S.ShowOverlay;
-        CornerTL.IsChecked = S.OverlayCorner == OverlayCorner.TopLeft;
-        CornerTR.IsChecked = S.OverlayCorner == OverlayCorner.TopRight;
-        CornerBL.IsChecked = S.OverlayCorner == OverlayCorner.BottomLeft;
-        CornerBR.IsChecked = S.OverlayCorner == OverlayCorner.BottomRight;
+        MicNotifyBox.IsChecked = S.MicNotify;
+        MicOverlayBox.IsChecked = S.MicOverlay;
+        SetCorner(MicCorners, S.MicOverlayCorner);
+        CamNotifyBox.IsChecked = S.CamNotify;
+        CamOverlayBox.IsChecked = S.CamOverlay;
+        SetCorner(CamCorners, S.CamOverlayCorner);
 
         // general
         StartWithWindowsBox.IsChecked = S.StartWithWindows;
@@ -143,7 +145,8 @@ public partial class SettingsWindow : Window
 
     private void UpdateDependentControls()
     {
-        CornerPanel.IsEnabled = OverlayBox.IsChecked == true;
+        MicCornerPanel.IsEnabled = MicOverlayBox.IsChecked == true;
+        CamCornerPanel.IsEnabled = CamOverlayBox.IsChecked == true;
         DeviceListPanel.IsEnabled = DevSelected.IsChecked == true;
         CamListPanel.IsEnabled = CamDevSelected.IsChecked == true;
         SelectNoneWarning.Visibility = S.DeviceMode == DeviceMode.Selected && S.SelectedDeviceIds.Count == 0
@@ -271,11 +274,13 @@ public partial class SettingsWindow : Window
         var pages = new (RadioButton Nav, FrameworkElement Page)[]
         {
             (NavOverview, PageOverview), (NavActivity, PageActivity), (NavMic, PageMic), (NavCamera, PageCamera), (NavShortcuts, PageShortcuts),
-            (NavFeedback, PageFeedback), (NavGeneral, PageGeneral), (NavAbout, PageAbout),
+            (NavGeneral, PageGeneral), (NavAbout, PageAbout),
         };
         foreach (var (nav, page) in pages)
             page.Visibility = nav.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         ActivityPage.SetActive(NavActivity.IsChecked == true);
+        if (NavAbout.IsChecked == true && !_updateBusy && DateTime.Now - UpdateService.LastChecked > TimeSpan.FromMinutes(10))
+            _ = CheckForUpdatesAsync();
     }
 
     // ---------------- microphone ----------------
@@ -384,16 +389,34 @@ public partial class SettingsWindow : Window
         UpdateDependentControls();
     }
 
-    // ---------------- feedback ----------------
+    // ---------------- alerts (Microphone and Camera pages) ----------------
 
-    private void Overlay_Changed(object sender, RoutedEventArgs e)
+    private (RadioButton Button, OverlayCorner Corner)[] MicCorners => new[]
+    {
+        (MicCornerTL, OverlayCorner.TopLeft), (MicCornerTR, OverlayCorner.TopRight),
+        (MicCornerBL, OverlayCorner.BottomLeft), (MicCornerBR, OverlayCorner.BottomRight),
+    };
+
+    private (RadioButton Button, OverlayCorner Corner)[] CamCorners => new[]
+    {
+        (CamCornerTL, OverlayCorner.TopLeft), (CamCornerTR, OverlayCorner.TopRight),
+        (CamCornerBL, OverlayCorner.BottomLeft), (CamCornerBR, OverlayCorner.BottomRight),
+    };
+
+    private static void SetCorner((RadioButton Button, OverlayCorner Corner)[] buttons, OverlayCorner corner)
+    {
+        foreach (var (button, c) in buttons) button.IsChecked = c == corner;
+    }
+
+    private static OverlayCorner GetCorner((RadioButton Button, OverlayCorner Corner)[] buttons) =>
+        buttons.FirstOrDefault(b => b.Button.IsChecked == true) is { Button: not null } chosen ? chosen.Corner : OverlayCorner.TopRight;
+
+    /// <summary>Any alert switch or badge corner changed on either page: save both devices' choices.</summary>
+    private void Alerts_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        var corner = CornerTL.IsChecked == true ? OverlayCorner.TopLeft
-            : CornerBL.IsChecked == true ? OverlayCorner.BottomLeft
-            : CornerBR.IsChecked == true ? OverlayCorner.BottomRight
-            : OverlayCorner.TopRight;
-        _app.SetOverlay(OverlayBox.IsChecked == true, corner);
+        _app.SetAlerts(UsageDevice.Microphone, MicNotifyBox.IsChecked == true, MicOverlayBox.IsChecked == true, GetCorner(MicCorners));
+        _app.SetAlerts(UsageDevice.Camera, CamNotifyBox.IsChecked == true, CamOverlayBox.IsChecked == true, GetCorner(CamCorners));
         UpdateDependentControls();
     }
 
@@ -405,7 +428,6 @@ public partial class SettingsWindow : Window
         if (_loading) return;
         S.StartMinimized = StartMinimizedBox.IsChecked == true;
         S.PlaySound = PlaySoundBox.IsChecked == true;
-        S.ShowNotification = NotificationBox.IsChecked == true;
         _app.Save();
     }
 
@@ -439,6 +461,116 @@ public partial class SettingsWindow : Window
     {
         if (_loading) return;
         _app.SetDoubleClickOpensSettings(DoubleClickBox.IsChecked == true);
+    }
+
+    // ---------------- updates ----------------
+
+    private bool _updateBusy;
+
+    private void CheckUpdates_Click(object sender, RoutedEventArgs e) => _ = CheckForUpdatesAsync();
+
+    /// <summary>Asks GitHub for the latest release and shows either "up to date" or an Update button.</summary>
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateBusy) return;
+        _updateBusy = true;
+        UpdateStatus.Text = "Checking for updates…";
+        UpdateDetail.Text = "";
+        CheckUpdatesButton.IsEnabled = false;
+        UpdateButton.Visibility = Visibility.Collapsed;
+        try
+        {
+            ShowUpdateResult(await UpdateService.CheckAsync());
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus.Text = "Couldn't check for updates";
+            UpdateDetail.Text = ex is HttpRequestException or TaskCanceledException
+                ? "Check your internet connection and try again."
+                : ex.Message;
+            ReleaseLinkText.Visibility = Visibility.Collapsed;
+        }
+        finally
+        {
+            _updateBusy = false;
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
+    private void ShowUpdateResult(UpdateInfo info)
+    {
+        var current = UpdateService.Current;
+        ReleaseLink.NavigateUri = new Uri(info.PageUrl);
+        ReleaseLinkText.Visibility = Visibility.Visible;
+        if (info.IsNewer)
+        {
+            UpdateStatus.Text = $"Version {info.Latest} is available";
+            UpdateDetail.Text = info.InstallerUrl != null
+                ? $"You have {current}. Update downloads the installer from GitHub ({info.InstallerSize / 1048576.0:0} MB), checks it, and installs it; PrivacyToggle restarts afterwards."
+                : $"You have {current}. This release has no installer attached; download it from the release page.";
+            UpdateButton.Content = info.InstallerUrl != null ? $"Update to {info.Latest}" : "Open release page";
+            UpdateButton.Visibility = Visibility.Visible;
+            ReleaseLinkRun.Text = $"What's new in {info.Tag}";
+            AboutUpdateBadge.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            UpdateStatus.Text = "You're up to date";
+            UpdateDetail.Text = $"PrivacyToggle {current} is the latest version (checked {UpdateService.LastChecked:t}).";
+            UpdateButton.Visibility = Visibility.Collapsed;
+            ReleaseLinkRun.Text = $"Release notes for {info.Tag}";
+            AboutUpdateBadge.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Downloads the new installer, verifies it, starts it, and closes PrivacyToggle so it can be replaced.</summary>
+    private async void UpdateNow_Click(object sender, RoutedEventArgs e)
+    {
+        var info = UpdateService.LastResult;
+        if (info == null || _updateBusy) return;
+        if (info.InstallerUrl == null)
+        {
+            OpenShell(info.PageUrl);
+            return;
+        }
+
+        _updateBusy = true;
+        UpdateButton.IsEnabled = CheckUpdatesButton.IsEnabled = false;
+        UpdateProgress.Value = 0;
+        UpdateProgress.Visibility = Visibility.Visible;
+        UpdateStatus.Text = $"Downloading {info.Latest}…";
+        UpdateDetail.Text = "";
+        try
+        {
+            var progress = new Progress<double>(p =>
+            {
+                UpdateProgress.Value = p;
+                UpdateDetail.Text = $"{p * 100:0}% of {info.InstallerSize / 1048576.0:0} MB";
+            });
+            string installer = await UpdateService.DownloadAsync(info, progress);
+
+            UpdateStatus.Text = "Starting the installer…";
+            UpdateDetail.Text = "Windows will ask for permission. PrivacyToggle closes now and restarts when the update is done.";
+            if (UpdateService.StartInstaller(installer))
+            {
+                await Task.Delay(800); // let the installer window appear first
+                Application.Current.Shutdown();
+                return;
+            }
+            UpdateStatus.Text = "Update cancelled";
+            UpdateDetail.Text = "The installer needs permission to run. Click Update to try again.";
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus.Text = "Update failed";
+            UpdateDetail.Text = ex is HttpRequestException ? "The download failed. Check your internet connection and try again." : ex.Message;
+        }
+        finally
+        {
+            _updateBusy = false;
+            UpdateButton.IsEnabled = CheckUpdatesButton.IsEnabled = true;
+            UpdateProgress.Visibility = Visibility.Collapsed;
+        }
     }
 
     // ---------------- about ----------------

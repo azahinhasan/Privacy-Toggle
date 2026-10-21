@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PrivacyToggle.Models;
 
 public enum OnStartState { KeepLast, Unmuted, Muted }
@@ -24,9 +26,20 @@ public sealed class AppSettings
     public bool DoubleClickOpensSettings { get; set; }
 
     public bool PlaySound { get; set; } = true;
-    public bool ShowNotification { get; set; }
-    public bool ShowOverlay { get; set; }
-    public OverlayCorner OverlayCorner { get; set; } = OverlayCorner.TopRight;
+    // ---- alerts, per device ----
+    public bool MicNotify { get; set; }
+    public bool CamNotify { get; set; }
+    public bool MicOverlay { get; set; }
+    public bool CamOverlay { get; set; }
+    public OverlayCorner MicOverlayCorner { get; set; } = OverlayCorner.TopRight;
+    public OverlayCorner CamOverlayCorner { get; set; } = OverlayCorner.TopRight;
+
+    // Before 1.2 these were shared by both devices. Read once from old settings files and copied to
+    // both devices (see SettingsService.Load); never written again.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? ShowNotification { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? ShowOverlay { get; set; }
+    [JsonPropertyName("overlayCorner"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OverlayCorner? LegacyOverlayCorner { get; set; }
 
     public DeviceMode DeviceMode { get; set; } = DeviceMode.All;
     public List<string> SelectedDeviceIds { get; set; } = new();
