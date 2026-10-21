@@ -8,34 +8,69 @@
         Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <!-- Neubrutalism: our own title bar (Windows' can't be styled), a thick ink frame around everything. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="42" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Border x:Name="Frame" BorderBrush="{DynamicResource Ink}" BorderThickness="2.5">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="210" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ============ Sidebar ============ -->
-        <Border Background="{DynamicResource SidebarBg}">
+        <!-- ============ Title bar ============ -->
+        <Border Grid.ColumnSpan="2" Background="{DynamicResource Accent}" BorderBrush="{DynamicResource Ink}" BorderThickness="0,0,0,2.5">
             <DockPanel>
-                <!-- brand + live status chips -->
-                <StackPanel DockPanel.Dock="Top" Margin="18,18,14,16">
-                    <StackPanel Orientation="Horizontal">
-                        <Image x:Name="BrandIcon" Width="26" Height="26" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="PrivacyToggle" FontSize="15" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <StackPanel Margin="0,14,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Ellipse x:Name="MicDot" Width="8" Height="8" VerticalAlignment="Center" />
-                            <TextBlock x:Name="MicChip" Margin="8,0,0,0" Style="{StaticResource Hint}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="CamDot" Width="8" Height="8" VerticalAlignment="Center" />
-                            <TextBlock x:Name="CamChip" Margin="8,0,0,0" Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButton}" Click="Minimize_Click" ToolTip="Minimize">
+                        <Path Data="M0,0 H12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.5" />
+                    </Button>
+                    <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Click="Maximize_Click" ToolTip="Maximize">
+                        <Path x:Name="MaxGlyph" Data="M0.5,0.5 H11.5 V11.5 H0.5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.5" />
+                    </Button>
+                    <Button Style="{StaticResource CaptionCloseButton}" Click="Close_Click" ToolTip="Close" Margin="0,0,4,0">
+                        <Path Data="M0,0 L12,12 M12,0 L0,12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    </Button>
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <Image x:Name="BrandIcon" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="PrivacyToggle" FontFamily="Segoe UI Black, Segoe UI" FontWeight="Black" FontSize="15"
+                               Foreground="{DynamicResource AccentText}" Margin="10,0,0,1" VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-                <TextBlock DockPanel.Dock="Bottom" x:Name="SidebarVersion" Margin="20,0,0,14" Style="{StaticResource Hint}" />
+        <!-- ============ Sidebar ============ -->
+        <Border Grid.Row="1" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource Ink}" BorderThickness="0,0,2.5,0">
+            <DockPanel>
+                <!-- live status -->
+                <Border DockPanel.Dock="Top" Margin="12,16,16,14" Padding="12,10" CornerRadius="8" BorderThickness="2.5"
+                        Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource Ink}" Effect="{DynamicResource HardShadowSmall}">
+                    <StackPanel>
+                        <!-- DockPanel (not a horizontal StackPanel) so long status text wraps instead of being cut off -->
+                        <DockPanel Margin="0,0,0,7">
+                            <Ellipse x:Name="MicDot" DockPanel.Dock="Left" Width="11" Height="11" VerticalAlignment="Top" Margin="0,3,0,0"
+                                     Stroke="{DynamicResource Ink}" StrokeThickness="2" />
+                            <TextBlock x:Name="MicChip" Margin="9,0,0,0" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimary}"
+                                       TextWrapping="Wrap" />
+                        </DockPanel>
+                        <DockPanel>
+                            <Ellipse x:Name="CamDot" DockPanel.Dock="Left" Width="11" Height="11" VerticalAlignment="Top" Margin="0,3,0,0"
+                                     Stroke="{DynamicResource Ink}" StrokeThickness="2" />
+                            <TextBlock x:Name="CamChip" Margin="9,0,0,0" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimary}"
+                                       TextWrapping="Wrap" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock DockPanel.Dock="Bottom" x:Name="SidebarVersion" Margin="22,0,0,14" Style="{StaticResource Hint}" FontWeight="SemiBold" />
 
                 <StackPanel>
                     <RadioButton x:Name="NavOverview" Style="{StaticResource NavItem}" Content="Overview" IsChecked="True" Checked="Nav_Checked" />
@@ -51,7 +86,7 @@
         </Border>
 
         <!-- ============ Pages ============ -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Row="1" Grid.Column="1">
 
             <!-- Overview -->
             <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10">
@@ -70,15 +105,18 @@
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                                     <Image x:Name="MicCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Microphone" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock Text="Microphone" FontSize="17" FontWeight="Bold" />
                                         <TextBlock x:Name="MicCardDevices" Style="{StaticResource Hint}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <Button DockPanel.Dock="Bottom" x:Name="MicCardButton" Style="{StaticResource AccentButton}"
                                         Margin="0,18,0,0" Click="MicCardButton_Click" />
                                 <StackPanel Margin="0,20,0,0">
-                                    <TextBlock x:Name="MicCardState" FontSize="26" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="MicCardHint" Style="{StaticResource Hint}" />
+                                    <Border x:Name="MicStateBadge" HorizontalAlignment="Left" Padding="14,2,14,4" CornerRadius="6" BorderThickness="2.5"
+                                            BorderBrush="{DynamicResource Ink}" Effect="{DynamicResource HardShadowSmall}">
+                                        <TextBlock x:Name="MicCardState" FontFamily="Segoe UI Black, Segoe UI" FontSize="24" FontWeight="Black" Foreground="#111111" />
+                                    </Border>
+                                    <TextBlock x:Name="MicCardHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -89,15 +127,18 @@
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                                     <Image x:Name="CamCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Camera" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock Text="Camera" FontSize="17" FontWeight="Bold" />
                                         <TextBlock x:Name="CamCardDevices" Style="{StaticResource Hint}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <Button DockPanel.Dock="Bottom" x:Name="CamCardButton" Style="{StaticResource AccentButton}"
                                         Margin="0,18,0,0" Click="CamCardButton_Click" />
                                 <StackPanel Margin="0,20,0,0">
-                                    <TextBlock x:Name="CamCardState" FontSize="26" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="CamCardHint" Style="{StaticResource Hint}" />
+                                    <Border x:Name="CamStateBadge" HorizontalAlignment="Left" Padding="14,2,14,4" CornerRadius="6" BorderThickness="2.5"
+                                            BorderBrush="{DynamicResource Ink}" Effect="{DynamicResource HardShadowSmall}">
+                                        <TextBlock x:Name="CamCardState" FontFamily="Segoe UI Black, Segoe UI" FontSize="24" FontWeight="Black" Foreground="#111111" />
+                                    </Border>
+                                    <TextBlock x:Name="CamCardHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -306,6 +347,18 @@
                         </StackPanel>
                     </Border>
 
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Appearance" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <WrapPanel>
+                                <RadioButton x:Name="ThemeSystem" Style="{StaticResource Segment}" GroupName="Theme" Content="Match Windows" Checked="Theme_Changed" />
+                                <RadioButton x:Name="ThemeLight" Style="{StaticResource Segment}" GroupName="Theme" Content="Light" Checked="Theme_Changed" />
+                                <RadioButton x:Name="ThemeDark" Style="{StaticResource Segment}" GroupName="Theme" Content="Dark" Checked="Theme_Changed" />
+                            </WrapPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="Light is the classic look: cream paper, black ink and bold colours." />
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Sound" />
                     <Border Style="{StaticResource Card}">
                         <CheckBox x:Name="PlaySoundBox" Style="{StaticResource ToggleSwitch}" Checked="Simple_Changed" Unchecked="Simple_Changed">
@@ -380,4 +433,5 @@
             </ScrollViewer>
         </Grid>
     </Grid>
+    </Border>
 </Window>

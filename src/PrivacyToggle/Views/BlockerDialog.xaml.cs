@@ -32,6 +32,8 @@ public partial class BlockerDialog : Window
         return dialog.ShowDialog() == true;
     }
 
+    private void DragStrip_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => DragMove();
+
     private void Confirm_Click(object sender, RoutedEventArgs e) => DialogResult = true;
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

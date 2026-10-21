@@ -4,15 +4,18 @@
         Title="PrivacyToggle overlay" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" Focusable="False"
         ResizeMode="NoResize" SizeToContent="WidthAndHeight" IsHitTestVisible="False">
+    <!-- Neubrutal badges: fixed colours (they float over any app), black outline, hard black shadow. -->
     <Window.Resources>
         <Style x:Key="Badge" TargetType="Border">
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Background" Value="#E6DC2626" />
-            <Setter Property="Padding" Value="10,5,14,5" />
-            <Setter Property="Margin" Value="4" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="#FF6B6B" />
+            <Setter Property="BorderBrush" Value="#111111" />
+            <Setter Property="BorderThickness" Value="2.5" />
+            <Setter Property="Padding" Value="9,5,12,5" />
+            <Setter Property="Margin" Value="4,4,10,10" />
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.35" />
+                    <DropShadowEffect BlurRadius="0" ShadowDepth="4" Direction="315" Color="#111111" Opacity="1" />
                 </Setter.Value>
             </Setter>
         </Style>
@@ -20,31 +23,31 @@
     <StackPanel Orientation="Horizontal">
         <Border x:Name="MicBadge" Style="{StaticResource Badge}">
             <StackPanel Orientation="Horizontal">
-                <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                <Viewbox Width="17" Height="17" VerticalAlignment="Center">
                     <Canvas Width="24" Height="24">
-                        <Path Fill="White" Data="M9,3 a3,3 0 0 1 6,0 v8 a3,3 0 0 1 -6,0 z" Canvas.Top="1" />
-                        <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                        <Path Fill="#111111" Data="M9,3 a3,3 0 0 1 6,0 v8 a3,3 0 0 1 -6,0 z" Canvas.Top="1" />
+                        <Path Stroke="#111111" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               Data="M5,11 a7,7 0 0 0 14,0 M12,18 v3 M8.5,21.5 h7" />
-                        <Path Stroke="#DC2626" StrokeThickness="4.5" Data="M4,4 L20,20" />
-                        <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
+                        <Path Stroke="#FF6B6B" StrokeThickness="5" Data="M4,4 L20,20" />
+                        <Path Stroke="#111111" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
                     </Canvas>
                 </Viewbox>
-                <TextBlock Text="MIC OFF" Foreground="White" FontWeight="Bold" FontSize="12" Margin="7,0,0,0"
-                           VerticalAlignment="Center" />
+                <TextBlock Text="MIC OFF" Foreground="#111111" FontFamily="Segoe UI Black, Segoe UI" FontWeight="Black" FontSize="13"
+                           Margin="7,0,0,1" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
         <Border x:Name="CamBadge" Style="{StaticResource Badge}">
             <StackPanel Orientation="Horizontal">
-                <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                <Viewbox Width="17" Height="17" VerticalAlignment="Center">
                     <Canvas Width="24" Height="24">
-                        <Rectangle Fill="White" Width="13" Height="11" RadiusX="2.5" RadiusY="2.5" Canvas.Left="2" Canvas.Top="6.5" />
-                        <Path Fill="White" Data="M16,10.5 L22,7 V17 L16,13.5 Z" />
-                        <Path Stroke="#DC2626" StrokeThickness="4.5" Data="M4,4 L20,20" />
-                        <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
+                        <Rectangle Fill="#111111" Width="13" Height="11" RadiusX="2.5" RadiusY="2.5" Canvas.Left="2" Canvas.Top="6.5" />
+                        <Path Fill="#111111" Data="M16,10.5 L22,7 V17 L16,13.5 Z" />
+                        <Path Stroke="#FF6B6B" StrokeThickness="5" Data="M4,4 L20,20" />
+                        <Path Stroke="#111111" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
                     </Canvas>
                 </Viewbox>
-                <TextBlock Text="CAM OFF" Foreground="White" FontWeight="Bold" FontSize="12" Margin="7,0,0,0"
-                           VerticalAlignment="Center" />
+                <TextBlock Text="CAM OFF" Foreground="#111111" FontFamily="Segoe UI Black, Segoe UI" FontWeight="Black" FontSize="13"
+                           Margin="7,0,0,1" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
     </StackPanel>

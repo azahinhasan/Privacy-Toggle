@@ -5,11 +5,15 @@ public enum HotkeyMode { Toggle, PushToTalk }
 public enum DeviceMode { All, Selected }
 public enum OverlayCorner { TopLeft, TopRight, BottomLeft, BottomRight }
 public enum CameraStartState { KeepLast, On, Off }
+public enum ThemeMode { System, Light, Dark }
 
 public sealed class AppSettings
 {
     public bool StartWithWindows { get; set; }
     public bool StartMinimized { get; set; } = true;
+
+    /// <summary>Follow the Windows app theme, or force light / dark.</summary>
+    public ThemeMode Theme { get; set; } = ThemeMode.System;
     public OnStartState OnStartState { get; set; } = OnStartState.KeepLast;
     public bool LastMuted { get; set; }
 

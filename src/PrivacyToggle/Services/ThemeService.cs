@@ -5,18 +5,20 @@ using Microsoft.Win32;
 
 namespace PrivacyToggle.Services;
 
-/// <summary>Follows the Windows app theme (light/dark) and swaps the brush dictionary live.</summary>
+/// <summary>Follows the Windows app theme (or a forced light/dark choice) and swaps the brush dictionary live.</summary>
 public static class ThemeService
 {
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private static ResourceDictionary? _current;
+    private static Models.ThemeMode _mode = Models.ThemeMode.System;
 
     public static bool IsDark { get; private set; }
 
     public static event Action? Changed;
 
-    public static void Initialize()
+    public static void Initialize(Models.ThemeMode mode)
     {
+        _mode = mode;
         Apply();
         SystemEvents.UserPreferenceChanged += (_, e) =>
         {
@@ -38,9 +40,21 @@ public static class ThemeService
         }
     }
 
+    /// <summary>Switches between following Windows and a forced light/dark theme.</summary>
+    public static void SetMode(Models.ThemeMode mode)
+    {
+        _mode = mode;
+        Apply();
+    }
+
     private static void Apply()
     {
-        bool dark = ReadIsDark();
+        bool dark = _mode switch
+        {
+            Models.ThemeMode.Light => false,
+            Models.ThemeMode.Dark => true,
+            _ => ReadIsDark(),
+        };
         if (_current != null && dark == IsDark) return;
         IsDark = dark;
 

@@ -112,15 +112,20 @@ public partial class HotkeyRecorderBox : UserControl
         {
             Display.Text = "Press a shortcut…";
             Badge.Text = "Esc to cancel";
-            Frame.SetResourceReference(Border.BorderBrushProperty, "Accent");
-            Frame.BorderThickness = new Thickness(2);
+            // Recording: the box lights up yellow.
+            Frame.SetResourceReference(Border.BackgroundProperty, "Accent");
+            Display.SetResourceReference(TextBlock.ForegroundProperty, "AccentText");
+            Badge.SetResourceReference(TextBlock.ForegroundProperty, "AccentText");
+            Frame.BorderThickness = new Thickness(3);
         }
         else
         {
             Display.Text = _hotkey.ToString();
             Badge.Text = "Click to change";
-            Frame.SetResourceReference(Border.BorderBrushProperty, "ControlBorder");
-            Frame.BorderThickness = new Thickness(1);
+            Frame.SetResourceReference(Border.BackgroundProperty, "ControlBg");
+            Display.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary");
+            Badge.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+            Frame.BorderThickness = new Thickness(2.5);
         }
     }
 

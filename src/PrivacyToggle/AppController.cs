@@ -55,7 +55,7 @@ public sealed class AppController : IDisposable
     public void Start(bool minimizedArg)
     {
         Settings.Load();
-        ThemeService.Initialize();
+        ThemeService.Initialize(S.Theme);
         LoadIcons();
 
         Mic = new MicService(_dispatcher) { EnforceMute = S.EnforceMute };
@@ -505,6 +505,13 @@ public sealed class AppController : IDisposable
         S.DoubleClickOpensSettings = on;
         Settings.Save();
         ApplyClickMode();
+    }
+
+    public void SetTheme(ThemeMode mode)
+    {
+        S.Theme = mode;
+        Settings.Save();
+        ThemeService.SetMode(mode);
     }
 
     public void SetShowMicTrayIcon(bool on)

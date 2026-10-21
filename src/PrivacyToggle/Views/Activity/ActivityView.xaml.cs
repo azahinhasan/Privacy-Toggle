@@ -33,8 +33,8 @@ public partial class ActivityView : UserControl
         CamTileGlyph.Content = Glyphs.Device(UsageDevice.Camera, 14);
         MicChipGlyph.Content = Glyphs.Device(UsageDevice.Microphone, 13);
         CamChipGlyph.Content = Glyphs.Device(UsageDevice.Camera, 13);
-        MicLinkGlyph.Content = Glyphs.Device(UsageDevice.Microphone, 13, "Accent");
-        CamLinkGlyph.Content = Glyphs.Device(UsageDevice.Camera, 13, "Accent");
+        MicLinkGlyph.Content = Glyphs.Device(UsageDevice.Microphone, 13, "Ink");
+        CamLinkGlyph.Content = Glyphs.Device(UsageDevice.Camera, 13, "Ink");
 
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
         _refresh = new DispatcherTimer(TimeSpan.FromSeconds(30), DispatcherPriority.Background, (_, _) => Refresh(), Dispatcher);
@@ -301,7 +301,8 @@ public partial class ActivityView : UserControl
 
     private static FrameworkElement PulsingDot(string brushKey)
     {
-        var dot = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+        var dot = new Ellipse { Width = 11, Height = 11, StrokeThickness = 2, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+        dot.SetResourceReference(Shape.StrokeProperty, "Ink");
         dot.SetResourceReference(Shape.FillProperty, brushKey);
         dot.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.25, TimeSpan.FromMilliseconds(900))
         {
@@ -319,9 +320,9 @@ public partial class ActivityView : UserControl
         bool expanded = _expanded.Contains(a.App.Key);
         var container = new StackPanel();
 
-        var row = new Border { CornerRadius = new CornerRadius(8), MinHeight = 44, Padding = new Thickness(0, 4, 0, 4), Cursor = System.Windows.Input.Cursors.Hand };
+        var row = new Border { CornerRadius = new CornerRadius(8), MinHeight = 44, Padding = new Thickness(0, 4, 0, 4), BorderThickness = new Thickness(2), Cursor = System.Windows.Input.Cursors.Hand };
         SetRowBackground(row, expanded);
-        row.MouseEnter += (_, _) => row.SetResourceReference(Border.BackgroundProperty, "RowHoverBg");
+        row.MouseEnter += (_, _) => SetRowBackground(row, true);
         row.MouseLeave += (_, _) => SetRowBackground(row, _expanded.Contains(a.App.Key));
 
         var grid = new Grid();
@@ -353,8 +354,16 @@ public partial class ActivityView : UserControl
 
     private static void SetRowBackground(Border row, bool highlighted)
     {
-        if (highlighted) row.SetResourceReference(Border.BackgroundProperty, "RowHoverBg");
-        else row.Background = Brushes.Transparent;
+        if (highlighted)
+        {
+            row.SetResourceReference(Border.BackgroundProperty, "RowHoverBg");
+            row.SetResourceReference(Border.BorderBrushProperty, "Ink");
+        }
+        else
+        {
+            row.Background = Brushes.Transparent;
+            row.BorderBrush = Brushes.Transparent;
+        }
     }
 
     /// <summary>Icon, full name (up to two lines, never cut mid-word) and per-device duration chips.</summary>
@@ -410,11 +419,13 @@ public partial class ActivityView : UserControl
         var border = new Border
         {
             CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(8, 2, 0, 8),
+            Margin = new Thickness(8, 4, 2, 10),
             Padding = new Thickness(14, 10, 14, 10),
+            BorderThickness = new Thickness(2),
             Child = panel,
         };
         border.SetResourceReference(Border.BackgroundProperty, "DetailBg");
+        border.SetResourceReference(Border.BorderBrushProperty, "Ink");
 
         var sessions = a.Spans.OrderByDescending(s => s.Start).ToList();
         foreach (var s in sessions.Take(maxShown))
@@ -475,9 +486,10 @@ public partial class ActivityView : UserControl
 
     private FrameworkElement ListRow(AppActivity a, DateTime now)
     {
-        var row = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 8, 8, 8), Background = Brushes.Transparent };
-        row.MouseEnter += (_, _) => row.SetResourceReference(Border.BackgroundProperty, "RowHoverBg");
-        row.MouseLeave += (_, _) => row.Background = Brushes.Transparent;
+        var row = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 8, 8, 8), BorderThickness = new Thickness(2) };
+        SetRowBackground(row, false);
+        row.MouseEnter += (_, _) => SetRowBackground(row, true);
+        row.MouseLeave += (_, _) => SetRowBackground(row, false);
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });                     // icon
@@ -527,34 +539,35 @@ public partial class ActivityView : UserControl
 
     // ---------------- building blocks ----------------
 
-    /// <summary>Outlined chip in the device colour with its glyph: never colour alone.</summary>
+    /// <summary>Solid chip in the device colour with an ink outline, black text and glyph: never colour alone.</summary>
     private static Border Chip(UsageDevice device, string text, out TextBlock label, bool large = false)
     {
         string key = Glyphs.BrushKey(device);
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
-        panel.Children.Add(Glyphs.Device(device, large ? 13 : 11));
+        panel.Children.Add(Glyphs.Device(device, large ? 13 : 11, "BadgeText"));
         label = new TextBlock
         {
             Text = text,
             FontSize = large ? 12 : 11,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = FontWeights.Bold,
             Margin = new Thickness(4, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
         if (large) label.FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"); // tabular-ish digits for the counter
-        label.SetResourceReference(TextBlock.ForegroundProperty, key);
+        label.SetResourceReference(TextBlock.ForegroundProperty, "BadgeText");
         panel.Children.Add(label);
 
         var chip = new Border
         {
             CornerRadius = new CornerRadius(10),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(2),
             Padding = large ? new Thickness(8, 2, 9, 2) : new Thickness(6, 1, 7, 1),
             Margin = new Thickness(0, 0, 6, 0),
             Child = panel,
             ToolTip = ActivityModel.Name(device),
         };
-        chip.SetResourceReference(Border.BorderBrushProperty, key);
+        chip.SetResourceReference(Border.BackgroundProperty, key);
+        chip.SetResourceReference(Border.BorderBrushProperty, "Ink");
         return chip;
     }
 
@@ -565,14 +578,16 @@ public partial class ActivityView : UserControl
         var badge = new Border
         {
             Width = size, Height = size, CornerRadius = new CornerRadius(size / 4), VerticalAlignment = VerticalAlignment.Center,
+            BorderThickness = new Thickness(2),
             Child = new TextBlock
             {
                 Text = app.Name.Length > 0 ? app.Name[..1].ToUpperInvariant() : "?",
-                Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, FontSize = size * 0.5,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x11, 0x11, 0x11)), FontWeight = FontWeights.Black, FontSize = size * 0.45,
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             },
         };
         badge.SetResourceReference(Border.BackgroundProperty, "Accent");
+        badge.SetResourceReference(Border.BorderBrushProperty, "Ink");
         return badge;
     }
 }

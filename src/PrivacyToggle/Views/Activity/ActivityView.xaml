@@ -9,10 +9,10 @@
         <!-- ============ Header ============ -->
         <StackPanel Orientation="Horizontal">
             <TextBlock Style="{StaticResource PageTitle}" Text="Activity" Margin="0" />
-            <Border x:Name="InfoIcon" Width="18" Height="18" CornerRadius="9" Margin="10,4,0,0" VerticalAlignment="Center"
-                    BorderThickness="1.2" BorderBrush="{DynamicResource TextSecondary}" Background="Transparent" Cursor="Help"
+            <Border x:Name="InfoIcon" Width="20" Height="20" CornerRadius="10" Margin="10,4,0,0" VerticalAlignment="Center"
+                    BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="{DynamicResource Accent}" Cursor="Help"
                     ToolTipService.InitialShowDelay="100" ToolTipService.ShowDuration="30000">
-                <TextBlock Text="i" FontSize="11" FontWeight="Bold" FontStyle="Italic" Foreground="{DynamicResource TextSecondary}"
+                <TextBlock Text="i" FontSize="11" FontWeight="Black" Foreground="{DynamicResource AccentText}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
                 <Border.ToolTip>
                     <ToolTip MaxWidth="340">
@@ -82,7 +82,7 @@
             <StackPanel>
                 <ItemsControl x:Name="LiveList" />
                 <StackPanel x:Name="LiveEmpty" Orientation="Horizontal" Margin="0,8">
-                    <Ellipse Width="8" Height="8" Fill="{DynamicResource NoneColor}" VerticalAlignment="Center" Opacity="0.6" />
+                    <Ellipse Width="11" Height="11" Fill="{DynamicResource NoneFill}" Stroke="{DynamicResource Ink}" StrokeThickness="2" VerticalAlignment="Center" />
                     <TextBlock Style="{StaticResource Hint}" Margin="10,0,0,0" FontSize="13"
                                Text="Nothing is using your microphone or camera right now." />
                 </StackPanel>
@@ -151,10 +151,10 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <v:TimeAxis x:Name="Axis" Grid.Column="1" Margin="0,0,0,4" />
-                    <v:TimeGrid x:Name="Gridlines" Grid.Row="1" Grid.Column="1" />
+                    <v:TimeAxis x:Name="Axis" Grid.Column="1" Margin="2,0,2,6" />
+                    <v:TimeGrid x:Name="Gridlines" Grid.Row="1" Grid.Column="1" Margin="2,0,2,0" />
                     <ItemsControl x:Name="Rows" Grid.Row="1" Grid.ColumnSpan="2" Focusable="False" />
-                    <v:TimeGrid x:Name="NowLine" Grid.Row="1" Grid.Column="1" NowLine="True" />
+                    <v:TimeGrid x:Name="NowLine" Grid.Row="1" Grid.Column="1" NowLine="True" Margin="2,0,2,0" />
                 </Grid>
 
                 <!-- list -->

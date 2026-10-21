@@ -2,14 +2,21 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="True" FocusVisualStyle="{x:Null}" Cursor="Hand"
-             MinWidth="220" Height="38">
-    <Border x:Name="Frame" CornerRadius="6" BorderThickness="1" Padding="12,0"
-            Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}">
-        <Grid>
-            <TextBlock x:Name="Display" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextPrimary}" />
-            <TextBlock x:Name="Badge" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"
-                       Foreground="{DynamicResource TextSecondary}" Text="Click to change" />
-        </Grid>
-    </Border>
+             MinWidth="220" Height="40" Margin="0,0,3,3">
+    <Grid>
+        <Border CornerRadius="6" Background="{DynamicResource Ink}">
+            <Border.RenderTransform>
+                <TranslateTransform X="3" Y="3" />
+            </Border.RenderTransform>
+        </Border>
+        <Border x:Name="Frame" CornerRadius="6" BorderThickness="2.5" Padding="12,0"
+                Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource Ink}">
+            <Grid>
+                <TextBlock x:Name="Display" VerticalAlignment="Center" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimary}" />
+                <TextBlock x:Name="Badge" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondary}" Text="Click to change" />
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>

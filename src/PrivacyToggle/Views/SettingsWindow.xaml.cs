@@ -58,6 +58,27 @@ public partial class SettingsWindow : Window
 
     private void OnThemeChanged() => ThemeService.ApplyTitleBar(this);
 
+    // ---------------- custom title bar ----------------
+
+    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void Maximize_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        bool max = WindowState == WindowState.Maximized;
+        // A maximized custom-chrome window hangs a few pixels past the screen edges; pull the content in.
+        Frame.Margin = max ? new Thickness(7) : new Thickness(0);
+        MaxGlyph.Data = System.Windows.Media.Geometry.Parse(max
+            ? "M3,0.5 H11.5 V9 M0.5,3 H9 V11.5 H0.5 Z"   // restore: two overlapping boxes
+            : "M0.5,0.5 H11.5 V11.5 H0.5 Z");
+        MaxButton.ToolTip = max ? "Restore" : "Maximize";
+    }
+
     /// <summary>The largest frame of an .ico (an Image given the .ico directly would upscale the 16px one).</summary>
     private ImageSource Image(string name)
     {
@@ -109,6 +130,9 @@ public partial class SettingsWindow : Window
         // general
         StartWithWindowsBox.IsChecked = S.StartWithWindows;
         StartMinimizedBox.IsChecked = S.StartMinimized;
+        ThemeSystem.IsChecked = S.Theme == ThemeMode.System;
+        ThemeLight.IsChecked = S.Theme == ThemeMode.Light;
+        ThemeDark.IsChecked = S.Theme == ThemeMode.Dark;
         MicTrayBox.IsChecked = S.ShowMicTrayIcon;
         CamTrayBox.IsChecked = S.ShowCameraTrayIcon;
         DoubleClickBox.IsChecked = S.DoubleClickOpensSettings;
@@ -141,7 +165,7 @@ public partial class SettingsWindow : Window
         var mic = _app.Mic.State;
         string micColor = mic switch { MicState.Muted => "MutedColor", MicState.Live => "LiveColor", _ => "NoneColor" };
         MicDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, micColor);
-        MicCardState.SetResourceReference(TextBlock.ForegroundProperty, micColor);
+        MicStateBadge.SetResourceReference(Border.BackgroundProperty, micColor.Replace("Color", "Fill"));
         MicChip.Text = mic switch { MicState.Muted => "Mic muted", MicState.Live => "Mic live", _ => "No microphone" };
         MicCardIcon.Source = Image(mic switch { MicState.Muted => "mic-off.ico", MicState.Live => "mic-on.ico", _ => "mic-none.ico" });
         MicCardState.Text = mic switch { MicState.Muted => "Muted", MicState.Live => "Live", _ => "Not found" };
@@ -158,7 +182,7 @@ public partial class SettingsWindow : Window
         var cam = camService.State;
         string camColor = cam switch { CameraState.Off => "MutedColor", CameraState.On => "LiveColor", _ => "NoneColor" };
         CamDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, camColor);
-        CamCardState.SetResourceReference(TextBlock.ForegroundProperty, camColor);
+        CamStateBadge.SetResourceReference(Border.BackgroundProperty, camColor.Replace("Color", "Fill"));
         CamChip.Text = cam switch
         {
             CameraState.Off => "Camera off",
@@ -389,6 +413,12 @@ public partial class SettingsWindow : Window
     {
         if (_loading) return;
         _app.SetStartWithWindows(StartWithWindowsBox.IsChecked == true);
+    }
+
+    private void Theme_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _app.SetTheme(ThemeLight.IsChecked == true ? ThemeMode.Light : ThemeDark.IsChecked == true ? ThemeMode.Dark : ThemeMode.System);
     }
 
     private void MicTray_Changed(object sender, RoutedEventArgs e)

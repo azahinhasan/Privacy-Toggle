@@ -122,15 +122,18 @@ public abstract class TimeElement : FrameworkElement
 /// <summary>Time labels above the tracks; "Now" at the right end, date labels at midnight.</summary>
 public sealed class TimeAxis : TimeElement
 {
-    protected override Size MeasureOverride(Size available) => new(0, 22);
+    protected override Size MeasureOverride(Size available) => new(0, 24);
 
     protected override void OnRender(DrawingContext dc)
     {
         if (To <= From) return;
         var secondary = Res("TextSecondary");
-        var now = TimeScale.Text(this, "Now", 11, Res("Accent"), bold: true);
-        double nowLeft = ActualWidth - now.Width;
-        dc.DrawText(now, new Point(nowLeft, 2));
+        // "NOW" tag: black on yellow in an ink box, sitting on the now line.
+        var now = TimeScale.Text(this, "NOW", 10, Res("AccentText"), bold: true);
+        var tag = new Rect(ActualWidth - now.Width - 12, 1, now.Width + 10, 18);
+        dc.DrawRoundedRectangle(Res("Accent"), new Pen(Res("Ink"), 2), tag, 4, 4);
+        dc.DrawText(now, new Point(tag.X + 5, tag.Y + (tag.Height - now.Height) / 2));
+        double nowLeft = tag.X;
 
         double lastRight = double.NegativeInfinity;
         foreach (var (t, midnight) in TimeScale.Ticks(Range, From, To))
@@ -138,12 +141,12 @@ public sealed class TimeAxis : TimeElement
             // A midnight inside an hourly view gets an emphasised date; in the 7-day view all labels are days.
             bool strong = midnight && Range != ActivityRange.Days7;
             var label = TimeScale.Text(this, TimeScale.Label(t, Range, midnight), 11,
-                strong ? Res("TextPrimary") : secondary, bold: strong);
+                strong ? Res("TextPrimary") : secondary, bold: true);
             double x = X(t);
             // Day labels sit just right of their line; time labels are centred on it.
             double left = Range == ActivityRange.Days7 ? x + 4 : x - label.Width / 2;
             if (left < 0 || left < lastRight + 8 || left + label.Width > nowLeft - 8) continue;
-            dc.DrawText(label, new Point(left, 2));
+            dc.DrawText(label, new Point(left, 3));
             lastRight = left + label.Width;
         }
     }
@@ -162,11 +165,11 @@ public sealed class TimeGrid : TimeElement
         if (NowLine)
         {
             double x = X(To) + 0.75;
-            dc.DrawLine(new Pen(Res("Accent"), 1.5), new Point(x, 0), new Point(x, ActualHeight));
+            dc.DrawLine(new Pen(Res("Ink"), 2.5), new Point(x, 0), new Point(x, ActualHeight));
             return;
         }
-        var grid = new Pen(Faded(Res("TextPrimary"), 0.07), 1);
-        var midnightPen = new Pen(Faded(Res("TextPrimary"), 0.28), 1.5);
+        var grid = new Pen(Faded(Res("Ink"), 0.12), 1.5) { DashStyle = new DashStyle(new double[] { 2, 3 }, 0) };
+        var midnightPen = new Pen(Res("Ink"), 2);
         foreach (var (t, midnight) in TimeScale.Ticks(Range, From, To))
         {
             double x = Math.Round(X(t)) + 0.5;
@@ -182,7 +185,7 @@ public sealed class TimeGrid : TimeElement
 /// </summary>
 public sealed class UsageTrack : TimeElement
 {
-    private const double LaneHeight = 6, LaneGap = 4, MinBar = 4;
+    private const double LaneHeight = 9, LaneGap = 5, MinBar = 6;
 
     private readonly ToolTip _tip = new() { Placement = PlacementMode.Mouse };
     private List<UsageSpan> _spans = new();
@@ -234,21 +237,24 @@ public sealed class UsageTrack : TimeElement
     {
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize)); // whole row area is hoverable
         if (To <= From) return;
-        var laneFill = Faded(Res("TextPrimary"), 0.07);
+        // Hollow outlined lanes, solid outlined bars (neubrutal: everything gets an ink edge).
+        var laneFill = Res("ControlBg");
+        var lanePen = new Pen(Faded(Res("Ink"), 0.35), 1.5);
         foreach (var d in new[] { UsageDevice.Camera, UsageDevice.Microphone })
         {
             var (top, visible) = Lane(d);
             if (visible)
-                dc.DrawRoundedRectangle(laneFill, null, new Rect(0, top, Math.Max(0, ActualWidth - 2), LaneHeight), 3, 3);
+                dc.DrawRoundedRectangle(laneFill, lanePen, new Rect(0, top, Math.Max(0, ActualWidth - 2), LaneHeight), 4, 4);
         }
-        var highlight = new Pen(Res("TextPrimary"), 1.2);
+        var ink = new Pen(Res("Ink"), 1.8);
+        var highlight = new Pen(Res("Ink"), 3);
         foreach (var s in _spans)
         {
             var (top, visible) = Lane(s.Device);
             if (!visible) continue;
             var (x1, x2) = Bar(s);
-            dc.DrawRoundedRectangle(Res(Glyphs.BrushKey(s.Device)), ReferenceEquals(s, _hovered) ? highlight : null,
-                new Rect(x1, top, x2 - x1, LaneHeight), 3, 3);
+            dc.DrawRoundedRectangle(Res(Glyphs.BrushKey(s.Device)), ReferenceEquals(s, _hovered) ? highlight : ink,
+                new Rect(x1, top, x2 - x1, LaneHeight), 4, 4);
         }
     }
 
@@ -320,7 +326,8 @@ public sealed class Sparkline : TimeElement
     protected override void OnRender(DrawingContext dc)
     {
         if (To <= From) return;
-        dc.DrawRoundedRectangle(Faded(Res("TextPrimary"), 0.06), null, new Rect(RenderSize), 4, 4);
+        // Ink-outlined box, like every other neubrutal surface.
+        dc.DrawRoundedRectangle(Res("ControlBg"), new Pen(Res("Ink"), 2), new Rect(1, 1, ActualWidth - 2, ActualHeight - 2), 4, 4);
         bool both = _showCam && _showMic;
         foreach (var s in _spans)
         {

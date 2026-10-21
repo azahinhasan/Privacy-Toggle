@@ -19,13 +19,16 @@ function New-RoundedRect([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) 
     return $p
 }
 
-# Draws a white microphone glyph. Coordinates are fractions of the icon size.
-function Draw-Mic($g, [int]$s, [float]$scale) {
+# Neubrutalism: ink (near-black) glyphs and outlines on flat bright fills, hard offset shadows on big sizes.
+$Ink = [System.Drawing.Color]::FromArgb(255, 17, 17, 17)
+
+# Draws a microphone glyph in $color. Coordinates are fractions of the icon size.
+function Draw-Mic($g, [int]$s, [float]$scale, [System.Drawing.Color]$color = $Ink) {
     $u = $s * $scale
     $ox = ($s - $u) / 2
     $oy = ($s - $u) / 2
-    $white = [System.Drawing.Color]::White
-    $stroke = [Math]::Max(1.0, $u * 0.075)
+    $white = $color
+    $stroke = [Math]::Max(1.0, $u * 0.085)
 
     # capsule
     $capsule = New-RoundedRect ($ox + $u * 0.36) ($oy + $u * 0.08) ($u * 0.28) ($u * 0.50) ($u * 0.14)
@@ -41,9 +44,9 @@ function Draw-Mic($g, [int]$s, [float]$scale) {
     $g.DrawLine($pen, $ox + $u * 0.34, $oy + $u * 0.90, $ox + $u * 0.66, $oy + $u * 0.90)
 }
 
-# Draws a white video-camera glyph: rounded body plus a lens "horn" on the right.
-function Draw-Camera($g, [int]$s) {
-    $white = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+# Draws a video-camera glyph in $color: rounded body plus a lens "horn" on the right.
+function Draw-Camera($g, [int]$s, [System.Drawing.Color]$color = $Ink) {
+    $white = New-Object System.Drawing.SolidBrush $color
     $g.FillPath($white, (New-RoundedRect ($s * 0.21) ($s * 0.34) ($s * 0.40) ($s * 0.32) ($s * 0.07)))
     $g.FillPolygon($white, [System.Drawing.PointF[]]@(
         (New-Object System.Drawing.PointF ($s * 0.63), ($s * 0.46)),
@@ -52,7 +55,7 @@ function Draw-Camera($g, [int]$s) {
         (New-Object System.Drawing.PointF ($s * 0.63), ($s * 0.54))))
 }
 
-# App icon: a white privacy shield with a keyhole cut out in the brand colour.
+# App icon: a white privacy shield with an ink outline and an ink keyhole.
 function Draw-Shield($g, [int]$s, [System.Drawing.Color]$hole) {
     $p = New-Object System.Drawing.Drawing2D.GraphicsPath
     $l = $s * 0.27; $r = $s * 0.73; $t = $s * 0.18; $mid = $s * 0.5
@@ -63,6 +66,9 @@ function Draw-Shield($g, [int]$s, [System.Drawing.Color]$hole) {
     $p.AddLine($l, $s * 0.48, $l, $t + $s * 0.08)
     $p.CloseFigure()
     $g.FillPath((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)), $p)
+    $outline = New-Object System.Drawing.Pen $Ink, ([Math]::Max(1.0, $s * 0.045))
+    $outline.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+    $g.DrawPath($outline, $p)
 
     $brush = New-Object System.Drawing.SolidBrush $hole
     $d = $s * 0.13
@@ -81,7 +87,7 @@ function Draw-Slash($g, [int]$s, [System.Drawing.Color]$bg) {
     $gap = New-Object System.Drawing.Pen $bg, ([Math]::Max(2.5, $w * 2.4))
     $gap.StartCap = $gap.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $g.DrawLine($gap, $a, $a, $b, $b)
-    $pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::White), $w
+    $pen = New-Object System.Drawing.Pen $Ink, $w
     $pen.StartCap = $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $g.DrawLine($pen, $a, $a, $b, $b)
 }
@@ -94,26 +100,51 @@ function Render([string]$kind, [int]$s) {
     $g.Clear([System.Drawing.Color]::Transparent)
     $inset = [Math]::Max(0.5, $s * 0.02)
 
+    # Big sizes get a hard offset shadow; small tray sizes skip it to keep the shape as large as possible.
+    $shadow = if ($s -ge 32) { $s * 0.07 } else { 0 }
+    $d = $s - 2 * $inset - $shadow                       # size of the shape itself
+    $outlineW = [Math]::Max(1.0, $s * 0.06)
+    $inkBrush = New-Object System.Drawing.SolidBrush $Ink
+    $outline = New-Object System.Drawing.Pen $Ink, $outlineW
+    $half = $outlineW / 2
+
     switch ($kind) {
         'app' {
-            $rect = New-Object System.Drawing.RectangleF $inset, $inset, ($s - 2 * $inset), ($s - 2 * $inset)
-            $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush $rect,
-                ([System.Drawing.Color]::FromArgb(255, 99, 102, 241)),
-                ([System.Drawing.Color]::FromArgb(255, 124, 58, 237)), 45.0
-            $g.FillPath($grad, (New-RoundedRect $inset $inset ($s - 2 * $inset) ($s - 2 * $inset) ($s * 0.22)))
-            Draw-Shield $g $s ([System.Drawing.Color]::FromArgb(255, 109, 80, 239))
+            $yellow = [System.Drawing.Color]::FromArgb(255, 217, 122, 43)   # #D97A2B accent
+            if ($shadow -gt 0) { $g.FillPath($inkBrush, (New-RoundedRect ($inset + $shadow) ($inset + $shadow) $d $d ($s * 0.2))) }
+            $tile = New-RoundedRect ($inset + $half) ($inset + $half) ($d - $outlineW) ($d - $outlineW) ($s * 0.2)
+            $g.FillPath((New-Object System.Drawing.SolidBrush $yellow), $tile)
+            $g.DrawPath($outline, $tile)
+            # draw the shield inside the tile (scaled to the tile, not the whole canvas)
+            $state = $g.Save()
+            $g.TranslateTransform($inset, $inset); $g.ScaleTransform($d / $s, $d / $s)
+            Draw-Shield $g $s $Ink
+            $g.Restore($state)
         }
         default {
             # 'on' / 'off' / 'none' = microphone; 'cam-on' / 'cam-off' / 'cam-none' = camera
             $state = $kind -replace '^cam-', ''
             $color = switch ($state) {
-                'on'   { [System.Drawing.Color]::FromArgb(255, 22, 163, 74) }
-                'off'  { [System.Drawing.Color]::FromArgb(255, 220, 38, 38) }
-                'none' { [System.Drawing.Color]::FromArgb(255, 107, 114, 128) }
+                'on'   { [System.Drawing.Color]::FromArgb(255, 123, 228, 149) }   # LiveFill
+                'off'  { [System.Drawing.Color]::FromArgb(255, 255, 107, 107) }   # coral
+                'none' { [System.Drawing.Color]::FromArgb(255, 218, 221, 225) }   # NoneFill
             }
-            $g.FillEllipse((New-Object System.Drawing.SolidBrush $color), $inset, $inset, $s - 2 * $inset, $s - 2 * $inset)
-            if ($kind -like 'cam-*') { Draw-Camera $g $s } else { Draw-Mic $g $s 0.58 }
+            if ($shadow -gt 0) { $g.FillEllipse($inkBrush, $inset + $shadow, $inset + $shadow, $d, $d) }
+            $g.FillEllipse((New-Object System.Drawing.SolidBrush $color), $inset + $half, $inset + $half, $d - $outlineW, $d - $outlineW)
+            $g.DrawEllipse($outline, $inset + $half, $inset + $half, $d - $outlineW, $d - $outlineW)
+            # glyph + slash drawn inside the circle
+            $saved = $g.Save()
+            $g.TranslateTransform($inset, $inset); $g.ScaleTransform($d / $s, $d / $s)
+            # Tray sizes: Windows gives the icon a fixed slot, so enlarge the glyph (not the slash) inside the circle instead.
+            $unzoomed = $g.Save()
+            if ($s -lt 32) {
+                $zoom = if ($kind -like 'cam-*') { 1.1 } else { 1.3 }   # the camera is wider, so it has less room
+                $g.TranslateTransform($s / 2, $s / 2); $g.ScaleTransform($zoom, $zoom); $g.TranslateTransform(-$s / 2, -$s / 2)
+            }
+            if ($kind -like 'cam-*') { Draw-Camera $g $s } else { Draw-Mic $g $s 0.56 }
+            $g.Restore($unzoomed)
             if ($state -eq 'off') { Draw-Slash $g $s $color }
+            $g.Restore($saved)
         }
     }
     $g.Dispose()
