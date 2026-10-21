@@ -32,6 +32,12 @@
 - **Light and dark themes**, or follow Windows. Click sounds can be turned off.
 - **In-app updates.** *Settings → About* checks GitHub for a new release, then downloads, verifies and installs it.
 
+##
+
+<img width="1083" height="701" alt="Screenshot 2026-10-21 134919" src="https://github.com/user-attachments/assets/74961638-cb3a-41e1-8716-dbbb0d6c52df" />
+<img width="1081" height="701" alt="Screenshot 2026-10-21 134831" src="https://github.com/user-attachments/assets/27535b27-d2b0-4cf6-97a3-c55eae06c039" />
+
+
 ## Install
 
 Download `PrivacyToggle-Setup-<version>.exe` from the [latest release](https://github.com/azahinhasan/Privacy-Toggle/releases/latest) and run it. Settings opens when setup finishes.
