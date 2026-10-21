@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/icon-app.png" alt="PrivacyToggle icon" width="80">
+<img src="docs/icon-app.png" alt="PrivacyToggle icon" width="100">
 
 # PrivacyToggle
 
