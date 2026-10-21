@@ -52,7 +52,9 @@ public sealed class AppController : IDisposable
 
     public AppController(Dispatcher dispatcher) => _dispatcher = dispatcher;
 
-    public void Start(bool minimizedArg)
+    /// <param name="minimizedArg">--minimized: start in the tray only (Windows startup).</param>
+    /// <param name="showArg">--show: always open Settings, even with "Start minimized" on (used by the installer).</param>
+    public void Start(bool minimizedArg, bool showArg = false)
     {
         Settings.Load();
         ThemeService.Initialize(S.Theme);
@@ -108,7 +110,7 @@ public sealed class AppController : IDisposable
         else if (CameraHotkeyError != null)
             Notify("Hotkey unavailable", CameraHotkeyError);
 
-        if (!minimizedArg && !S.StartMinimized)
+        if (showArg || (!minimizedArg && !S.StartMinimized))
             ShowSettings();
     }
 

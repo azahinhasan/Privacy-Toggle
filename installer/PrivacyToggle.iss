@@ -8,7 +8,7 @@
 #define AppName "PrivacyToggle"
 ; build.ps1 passes /DAppVersion=<Version from PrivacyToggle.csproj>; this default is only for compiling by hand.
 #ifndef AppVersion
-  #define AppVersion "1.2.0"
+  #define AppVersion "1.3.0"
 #endif
 #define AppExe "PrivacyToggle.exe"
 #define AppId "{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}"
@@ -36,6 +36,8 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+; Tells Explorer to reload icons at the end of setup, so an upgrade with a new icon doesn't keep showing the old one.
+ChangesAssociations=yes
 ; A running copy is closed by the [Code] section below (PrivacyToggle.exe --exit) instead of AppMutex,
 ; which would make setup/uninstall stop and ask (or silently abort) while the tray app is running.
 
@@ -55,10 +57,12 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; \
     ValueData: """{app}\{#AppExe}"" --minimized"; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
+; Windows caches icons by file path; refresh the cache so the taskbar and shortcuts pick up a changed app icon.
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated skipifdoesntexist runasoriginaluser
 Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Setting up camera control..."; \
     Flags: runhidden waituntilterminated
-; Start the tray app as the signed-in user, not elevated.
-Filename: "{app}\{#AppExe}"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; Start the tray app as the signed-in user, not elevated, with Settings open (--show ignores "Start minimized").
+Filename: "{app}\{#AppExe}"; Parameters: "--show"; Description: "Launch PrivacyToggle now"; Flags: nowait postinstall skipifsilent runasoriginaluser
 ; In-app updates run setup silently with /relaunch=1: start the updated app again afterwards.
 Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 

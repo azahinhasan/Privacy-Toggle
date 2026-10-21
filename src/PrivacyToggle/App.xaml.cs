@@ -51,7 +51,7 @@ public partial class App : Application
         SessionEnding += (_, _) => Shutdown();
 
         _controller = new AppController(Dispatcher);
-        _controller.Start(HasArg("--minimized"));
+        _controller.Start(HasArg("--minimized"), HasArg("--show"));
 
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         _showWait = ThreadPool.RegisterWaitForSingleObject(_showEvent,

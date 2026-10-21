@@ -157,7 +157,8 @@ public partial class SettingsWindow : Window
             ? $"Press {S.Hotkey} once to mute and again to unmute."
             : $"Microphones stay muted and are live only while you hold {S.Hotkey}. The key press is not passed on to other apps.";
         CamHotkeyHint.Text = $"Press {S.CameraHotkey} to turn the camera off, and again to turn it back on.";
-        NoTrayWarning.Visibility = !S.ShowMicTrayIcon && !S.ShowCameraTrayIcon ? Visibility.Visible : Visibility.Collapsed;
+        MicNoTrayWarning.Visibility = CamNoTrayWarning.Visibility =
+            !S.ShowMicTrayIcon && !S.ShowCameraTrayIcon ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---------------- status ----------------
@@ -507,9 +508,10 @@ public partial class SettingsWindow : Window
             UpdateStatus.Text = $"Version {info.Latest} is available";
             UpdateDetail.Text = info.InstallerUrl != null
                 ? $"You have {current}. Update downloads the installer from GitHub ({info.InstallerSize / 1048576.0:0} MB), checks it, and installs it; PrivacyToggle restarts afterwards."
-                : $"You have {current}. This release has no installer attached; download it from the release page.";
-            UpdateButton.Content = info.InstallerUrl != null ? $"Update to {info.Latest}" : "Open release page";
-            UpdateButton.Visibility = Visibility.Visible;
+                : $"You have {current}. This release has no installer attached; download it from the link below.";
+            // Without an installer there's nothing to install here; the "What's new" link below opens the release.
+            UpdateButton.Content = $"Update to {info.Latest}";
+            UpdateButton.Visibility = info.InstallerUrl != null ? Visibility.Visible : Visibility.Collapsed;
             ReleaseLinkRun.Text = $"What's new in {info.Tag}";
             AboutUpdateBadge.Visibility = Visibility.Visible;
         }
@@ -527,12 +529,7 @@ public partial class SettingsWindow : Window
     private async void UpdateNow_Click(object sender, RoutedEventArgs e)
     {
         var info = UpdateService.LastResult;
-        if (info == null || _updateBusy) return;
-        if (info.InstallerUrl == null)
-        {
-            OpenShell(info.PageUrl);
-            return;
-        }
+        if (info?.InstallerUrl == null || _updateBusy) return;
 
         _updateBusy = true;
         UpdateButton.IsEnabled = CheckUpdatesButton.IsEnabled = false;

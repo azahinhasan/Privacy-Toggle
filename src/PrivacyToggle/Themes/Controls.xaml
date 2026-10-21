@@ -553,69 +553,6 @@
         </Setter>
     </Style>
 
-    <!-- ================= Tray menu (implicit: the tray ContextMenus) ================= -->
-    <Style TargetType="ContextMenu">
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="FontFamily" Value="Segoe UI" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="HasDropShadow" Value="False" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ContextMenu">
-                    <Border Margin="0,0,6,6" Padding="5" MinWidth="220" CornerRadius="8" BorderThickness="2.5"
-                            Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource Ink}"
-                            Effect="{DynamicResource HardShadow}">
-                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-    <Style TargetType="MenuItem">
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="Bd" Padding="10,7" CornerRadius="5" BorderThickness="2" BorderBrush="Transparent" Background="Transparent">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="22" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Path x:Name="Check" Data="M 1,6 L 5,10 L 12,2" Stroke="{TemplateBinding Foreground}" StrokeThickness="2.5"
-                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" Visibility="Hidden" />
-                            <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
-                        </Grid>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Check" Property="Visibility" Value="Visible" />
-                        </Trigger>
-                        <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}" />
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Ink}" />
-                            <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Separator">
-                    <Border Height="2" Margin="4,5" Background="{DynamicResource Ink}" />
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
     <!-- ================= Progress bar (update download) ================= -->
     <Style x:Key="BrutalProgress" TargetType="ProgressBar">
         <Setter Property="Height" Value="18" />
