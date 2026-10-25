@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/icon-app.png" alt="PrivacyToggle icon" width="80">
+<img src="docs/icon-app.png" alt="PrivacyToggle icon" width="100">
 
 # PrivacyToggle
 
@@ -35,6 +35,7 @@
 ##
 
 <img width="1083" height="701" alt="Screenshot 2026-10-21 134919" src="https://github.com/user-attachments/assets/74961638-cb3a-41e1-8716-dbbb0d6c52df" />
+<img width="1078" height="639" alt="Screenshot 2026-10-23 201035" src="https://github.com/user-attachments/assets/c762605d-2fe0-4113-b9ad-eb0052a3f357" />
 <img width="1081" height="701" alt="Screenshot 2026-10-21 134831" src="https://github.com/user-attachments/assets/27535b27-d2b0-4cf6-97a3-c55eae06c039" />
 
 
