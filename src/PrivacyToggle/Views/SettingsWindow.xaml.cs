@@ -123,9 +123,15 @@ public partial class SettingsWindow : Window
         // alerts (per device) + sound
         PlaySoundBox.IsChecked = S.PlaySound;
         MicNotifyBox.IsChecked = S.MicNotify;
+        MicNotifyWindows.IsChecked = S.MicNotifyStyle == NotifyStyle.Windows;
+        MicNotifyBadge.IsChecked = S.MicNotifyStyle == NotifyStyle.Badge;
+        SetCorner(MicNotifyCorners, S.MicNotifyCorner);
         MicOverlayBox.IsChecked = S.MicOverlay;
         SetCorner(MicCorners, S.MicOverlayCorner);
         CamNotifyBox.IsChecked = S.CamNotify;
+        CamNotifyWindows.IsChecked = S.CamNotifyStyle == NotifyStyle.Windows;
+        CamNotifyBadge.IsChecked = S.CamNotifyStyle == NotifyStyle.Badge;
+        SetCorner(CamNotifyCorners, S.CamNotifyCorner);
         CamOverlayBox.IsChecked = S.CamOverlay;
         SetCorner(CamCorners, S.CamOverlayCorner);
 
@@ -147,6 +153,10 @@ public partial class SettingsWindow : Window
     {
         MicCornerPanel.IsEnabled = MicOverlayBox.IsChecked == true;
         CamCornerPanel.IsEnabled = CamOverlayBox.IsChecked == true;
+        MicNotifyStylePanel.IsEnabled = MicNotifyBox.IsChecked == true;
+        CamNotifyStylePanel.IsEnabled = CamNotifyBox.IsChecked == true;
+        MicNotifyCornerPanel.Visibility = MicNotifyBadge.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        CamNotifyCornerPanel.Visibility = CamNotifyBadge.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         DeviceListPanel.IsEnabled = DevSelected.IsChecked == true;
         CamListPanel.IsEnabled = CamDevSelected.IsChecked == true;
         SelectNoneWarning.Visibility = S.DeviceMode == DeviceMode.Selected && S.SelectedDeviceIds.Count == 0
@@ -274,7 +284,7 @@ public partial class SettingsWindow : Window
         if (PageOverview == null) return; // during InitializeComponent
         var pages = new (RadioButton Nav, FrameworkElement Page)[]
         {
-            (NavOverview, PageOverview), (NavActivity, PageActivity), (NavMic, PageMic), (NavCamera, PageCamera), (NavShortcuts, PageShortcuts),
+            (NavOverview, PageOverview), (NavActivity, PageActivity), (NavMic, PageMic), (NavCamera, PageCamera),
             (NavGeneral, PageGeneral), (NavAbout, PageAbout),
         };
         foreach (var (nav, page) in pages)
@@ -404,6 +414,17 @@ public partial class SettingsWindow : Window
         (CamCornerBL, OverlayCorner.BottomLeft), (CamCornerBR, OverlayCorner.BottomRight),
     };
 
+    // The switch badge only offers the top corners.
+    private (RadioButton Button, OverlayCorner Corner)[] MicNotifyCorners => new[]
+    {
+        (MicNotifyCornerTL, OverlayCorner.TopLeft), (MicNotifyCornerTR, OverlayCorner.TopRight),
+    };
+
+    private (RadioButton Button, OverlayCorner Corner)[] CamNotifyCorners => new[]
+    {
+        (CamNotifyCornerTL, OverlayCorner.TopLeft), (CamNotifyCornerTR, OverlayCorner.TopRight),
+    };
+
     private static void SetCorner((RadioButton Button, OverlayCorner Corner)[] buttons, OverlayCorner corner)
     {
         foreach (var (button, c) in buttons) button.IsChecked = c == corner;
@@ -416,8 +437,12 @@ public partial class SettingsWindow : Window
     private void Alerts_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        _app.SetAlerts(UsageDevice.Microphone, MicNotifyBox.IsChecked == true, MicOverlayBox.IsChecked == true, GetCorner(MicCorners));
-        _app.SetAlerts(UsageDevice.Camera, CamNotifyBox.IsChecked == true, CamOverlayBox.IsChecked == true, GetCorner(CamCorners));
+        _app.SetAlerts(UsageDevice.Microphone, MicNotifyBox.IsChecked == true,
+            MicNotifyBadge.IsChecked == true ? NotifyStyle.Badge : NotifyStyle.Windows, GetCorner(MicNotifyCorners),
+            MicOverlayBox.IsChecked == true, GetCorner(MicCorners));
+        _app.SetAlerts(UsageDevice.Camera, CamNotifyBox.IsChecked == true,
+            CamNotifyBadge.IsChecked == true ? NotifyStyle.Badge : NotifyStyle.Windows, GetCorner(CamNotifyCorners),
+            CamOverlayBox.IsChecked == true, GetCorner(CamCorners));
         UpdateDependentControls();
     }
 

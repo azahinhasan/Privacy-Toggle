@@ -51,8 +51,7 @@ Download `PrivacyToggle-Setup-<version>.exe` from the [latest release](https://g
 - **Settings** pages:
   - **Overview:** both devices at a glance.
   - **Activity:** live use and history.
-  - **Microphone / Camera:** mode, devices, start state, tray icon and alerts for each device.
-  - **Shortcuts:** change the global hotkeys.
+  - **Microphone / Camera:** global shortcut, mode, devices, start state, tray icon and alerts for each device.
   - **General:** startup, appearance and sound.
   - **About:** version and updates.
 - Changes save instantly to `%AppData%\PrivacyToggle\settings.json`.

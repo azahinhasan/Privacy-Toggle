@@ -20,6 +20,7 @@ public sealed class AppController : IDisposable
     private TrayMenu? _micMenu, _camMenu;
     private SettingsWindow? _settingsWindow;
     private readonly Dictionary<OverlayCorner, OverlayWindow> _overlays = new(); // badge windows, one per corner in use
+    private readonly Dictionary<OverlayCorner, NotifyBadgeWindow> _notifyBadges = new(); // short-lived switch badges, per corner
     private bool _hotkeySuspended;
     private bool _disposed;
 
@@ -329,6 +330,19 @@ public sealed class AppController : IDisposable
         catch { }
     }
 
+    /// <summary>
+    /// Pops up a short-lived badge for a switch, in the device's chosen corner. If a MIC OFF / CAM OFF
+    /// badge already sits in that corner, it appears just beside it (below at the top, above at the bottom).
+    /// </summary>
+    private void FlashBadge(bool camera, (bool? Off, string Text) state)
+    {
+        var corner = camera ? S.CamNotifyCorner : S.MicNotifyCorner;
+        double offset = _overlays.TryGetValue(corner, out var overlay) && overlay.IsVisible ? overlay.ActualHeight : 0;
+        if (!_notifyBadges.TryGetValue(corner, out var badge))
+            _notifyBadges[corner] = badge = new NotifyBadgeWindow();
+        badge.Flash(camera, state.Off, state.Text, corner, offset);
+    }
+
     // ---------------- mic actions ----------------
 
     public void UserToggle()
@@ -351,12 +365,20 @@ public sealed class AppController : IDisposable
         if (S.PlaySound) Sounds.Play(Mic.DesiredMuted);
         if (notify && S.MicNotify)
         {
-            Notify("PrivacyToggle", Mic.State switch
-            {
-                MicState.NoDevice => "No microphone found",
-                MicState.Muted => "Microphone muted",
-                _ => "Microphone is live",
-            });
+            if (S.MicNotifyStyle == NotifyStyle.Badge)
+                FlashBadge(camera: false, Mic.State switch
+                {
+                    MicState.NoDevice => (null, "NO MIC"),
+                    MicState.Muted => (true, "MIC OFF"),
+                    _ => (false, "MIC ON"),
+                });
+            else
+                Notify("PrivacyToggle", Mic.State switch
+                {
+                    MicState.NoDevice => "No microphone found",
+                    MicState.Muted => "Microphone muted",
+                    _ => "Microphone is live",
+                });
         }
     }
 
@@ -425,6 +447,13 @@ public sealed class AppController : IDisposable
             Notify("Camera", "Couldn't switch the camera: " + Camera.LastError);
         else if (Camera.NeedsRestart)
             Notify("Camera", "Windows needs a restart to finish switching the camera.");
+        else if (S.CamNotify && S.CamNotifyStyle == NotifyStyle.Badge)
+            FlashBadge(camera: true, Camera.State switch
+            {
+                CameraState.NoDevice => (null, "NO CAMERA"),
+                CameraState.Off => (true, "CAM OFF"),
+                _ => (false, "CAM ON"),
+            });
         else if (S.CamNotify)
             Notify("PrivacyToggle", Camera.State switch
             {
@@ -592,13 +621,19 @@ public sealed class AppController : IDisposable
         Camera.SetTargets(S.CameraDeviceMode, S.SelectedCameraIds);
     }
 
-    /// <summary>Saves a device's alert choices (notification, on-screen badge and its corner).</summary>
-    public void SetAlerts(UsageDevice device, bool notify, bool overlay, OverlayCorner corner)
+    /// <summary>
+    /// Saves a device's alert choices: the switch notification (its style and, for the badge style, corner)
+    /// and the on-screen OFF badge with its corner.
+    /// </summary>
+    public void SetAlerts(UsageDevice device, bool notify, NotifyStyle notifyStyle, OverlayCorner notifyCorner,
+        bool overlay, OverlayCorner corner)
     {
         if (device == UsageDevice.Microphone)
-            (S.MicNotify, S.MicOverlay, S.MicOverlayCorner) = (notify, overlay, corner);
+            (S.MicNotify, S.MicNotifyStyle, S.MicNotifyCorner, S.MicOverlay, S.MicOverlayCorner) =
+                (notify, notifyStyle, notifyCorner, overlay, corner);
         else
-            (S.CamNotify, S.CamOverlay, S.CamOverlayCorner) = (notify, overlay, corner);
+            (S.CamNotify, S.CamNotifyStyle, S.CamNotifyCorner, S.CamOverlay, S.CamOverlayCorner) =
+                (notify, notifyStyle, notifyCorner, overlay, corner);
         Settings.Save();
         UpdateOverlay();
     }
@@ -664,6 +699,7 @@ public sealed class AppController : IDisposable
 
         _settingsWindow?.Close();
         foreach (var window in _overlays.Values) window.Close();
+        foreach (var window in _notifyBadges.Values) window.Close();
         Hotkeys?.Dispose();
         PushToTalk?.Dispose();
         Mic?.Dispose();

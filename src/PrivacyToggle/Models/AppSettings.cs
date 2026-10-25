@@ -9,13 +9,16 @@ public enum OverlayCorner { TopLeft, TopRight, BottomLeft, BottomRight }
 public enum CameraStartState { KeepLast, On, Off }
 public enum ThemeMode { System, Light, Dark }
 
+/// <summary>How a switch is announced: a Windows notification, or a short-lived badge in a screen corner.</summary>
+public enum NotifyStyle { Windows, Badge }
+
 public sealed class AppSettings
 {
     public bool StartWithWindows { get; set; }
     public bool StartMinimized { get; set; } = true;
 
-    /// <summary>Follow the Windows app theme, or force light / dark.</summary>
-    public ThemeMode Theme { get; set; } = ThemeMode.System;
+    /// <summary>Follow the Windows app theme, or force light / dark. New installs start in light.</summary>
+    public ThemeMode Theme { get; set; } = ThemeMode.Light;
     public OnStartState OnStartState { get; set; } = OnStartState.KeepLast;
     public bool LastMuted { get; set; }
 
@@ -29,6 +32,10 @@ public sealed class AppSettings
     // ---- alerts, per device ----
     public bool MicNotify { get; set; }
     public bool CamNotify { get; set; }
+    public NotifyStyle MicNotifyStyle { get; set; } = NotifyStyle.Windows;
+    public NotifyStyle CamNotifyStyle { get; set; } = NotifyStyle.Windows;
+    public OverlayCorner MicNotifyCorner { get; set; } = OverlayCorner.TopRight;
+    public OverlayCorner CamNotifyCorner { get; set; } = OverlayCorner.TopRight;
     public bool MicOverlay { get; set; }
     public bool CamOverlay { get; set; }
     public OverlayCorner MicOverlayCorner { get; set; } = OverlayCorner.TopRight;

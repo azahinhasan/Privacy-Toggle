@@ -10,7 +10,7 @@ public static class ThemeService
 {
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private static ResourceDictionary? _current;
-    private static Models.ThemeMode _mode = Models.ThemeMode.System;
+    private static Models.ThemeMode _mode = Models.ThemeMode.Light;
 
     public static bool IsDark { get; private set; }
 

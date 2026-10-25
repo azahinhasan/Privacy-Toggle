@@ -85,7 +85,6 @@
                     </RadioButton>
                     <RadioButton x:Name="NavMic" Style="{StaticResource NavItem}" Content="Microphone" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavCamera" Style="{StaticResource NavItem}" Content="Camera" Checked="Nav_Checked" />
-                    <RadioButton x:Name="NavShortcuts" Style="{StaticResource NavItem}" Content="Shortcuts" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" Content="General" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" Checked="Nav_Checked">
                         <StackPanel Orientation="Horizontal">
@@ -175,6 +174,25 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource PageTitle}" Text="Microphone" />
 
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Shortcut" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <v:HotkeyRecorderBox x:Name="Recorder" Width="260" />
+                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetHotkey_Click" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       Text="Click the box and press a combination with at least one of Ctrl, Alt, Shift or Win. Works even when another app is focused." />
+                            <TextBlock x:Name="HotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                            <WrapPanel Margin="0,14,0,0">
+                                <RadioButton x:Name="ModeToggle" Style="{StaticResource Segment}" GroupName="Mode" Content="Toggle" Checked="Mode_Changed" />
+                                <RadioButton x:Name="ModePtt" Style="{StaticResource Segment}" GroupName="Mode" Content="Push-to-talk" Checked="Mode_Changed" />
+                            </WrapPanel>
+                            <TextBlock x:Name="ModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock Style="{StaticResource SectionTitle}" Text="When PrivacyToggle starts" />
                     <Border Style="{StaticResource Card}" Padding="16,14">
                         <WrapPanel>
@@ -236,9 +254,23 @@
                             <CheckBox x:Name="MicNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
                                 <StackPanel>
                                     <TextBlock Text="Notify me when the microphone mutes or unmutes" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="A Windows notification each time you switch it. Not shown for push-to-talk presses." />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Each time you switch it, as a Windows notification or a badge that disappears after 2 seconds. Not shown for push-to-talk presses." />
                                 </StackPanel>
                             </CheckBox>
+                            <StackPanel x:Name="MicNotifyStylePanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Notification style" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="MicNotifyWindows" Style="{StaticResource Segment}" GroupName="MicNotifyStyle" Content="Windows notification" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="MicNotifyBadge" Style="{StaticResource Segment}" GroupName="MicNotifyStyle" Content="Corner badge" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                                <StackPanel x:Name="MicNotifyCornerPanel" Margin="0,12,0,0">
+                                    <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                    <WrapPanel>
+                                        <RadioButton x:Name="MicNotifyCornerTL" Style="{StaticResource Segment}" GroupName="MicNotifyCorner" Content="Top left" Checked="Alerts_Changed" />
+                                        <RadioButton x:Name="MicNotifyCornerTR" Style="{StaticResource Segment}" GroupName="MicNotifyCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </StackPanel>
                             <Border Style="{StaticResource RowDivider}" />
                             <CheckBox x:Name="MicOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
                                 <StackPanel>
@@ -269,6 +301,21 @@
                             <TextBlock Text="Camera control isn't installed" FontWeight="SemiBold" Foreground="{DynamicResource Warning}" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
                                        Text="Turning cameras off needs the PrivacyToggle helper service, which the installer sets up (it asks for admin rights once). Run PrivacyToggle-Setup to enable it." />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Shortcut" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <v:HotkeyRecorderBox x:Name="CamRecorder" Width="260" />
+                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetCamHotkey_Click" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       Text="Click the box and press a combination with at least one of Ctrl, Alt, Shift or Win. Works even when another app is focused." />
+                            <TextBlock x:Name="CamHotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                            <TextBlock x:Name="CamHotkeyHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -328,9 +375,23 @@
                             <CheckBox x:Name="CamNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
                                 <StackPanel>
                                     <TextBlock Text="Notify me when the camera turns off or on" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="A Windows notification each time you switch it." />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Each time you switch it, as a Windows notification or a badge that disappears after 2 seconds." />
                                 </StackPanel>
                             </CheckBox>
+                            <StackPanel x:Name="CamNotifyStylePanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Notification style" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="CamNotifyWindows" Style="{StaticResource Segment}" GroupName="CamNotifyStyle" Content="Windows notification" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="CamNotifyBadge" Style="{StaticResource Segment}" GroupName="CamNotifyStyle" Content="Corner badge" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                                <StackPanel x:Name="CamNotifyCornerPanel" Margin="0,12,0,0">
+                                    <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                    <WrapPanel>
+                                        <RadioButton x:Name="CamNotifyCornerTL" Style="{StaticResource Segment}" GroupName="CamNotifyCorner" Content="Top left" Checked="Alerts_Changed" />
+                                        <RadioButton x:Name="CamNotifyCornerTR" Style="{StaticResource Segment}" GroupName="CamNotifyCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </StackPanel>
                             <Border Style="{StaticResource RowDivider}" />
                             <CheckBox x:Name="CamOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
                                 <StackPanel>
@@ -351,45 +412,6 @@
                     </Border>
                     <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
                                Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on. If a program holds the camera and won't let go, PrivacyToggle asks before closing it; a background service closed this way is started again when you turn the camera back on." />
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Shortcuts -->
-            <ScrollViewer x:Name="PageShortcuts" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Shortcuts" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="2,-8,0,14"
-                               Text="Click a box and press a combination with at least one of Ctrl, Alt, Shift or Win. Shortcuts work even when another app is focused." />
-
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Microphone" />
-                    <Border Style="{StaticResource Card}" Padding="16,14">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <v:HotkeyRecorderBox x:Name="Recorder" Width="260" />
-                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetHotkey_Click" />
-                            </StackPanel>
-                            <TextBlock x:Name="HotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
-                            <WrapPanel Margin="0,14,0,0">
-                                <RadioButton x:Name="ModeToggle" Style="{StaticResource Segment}" GroupName="Mode" Content="Toggle" Checked="Mode_Changed" />
-                                <RadioButton x:Name="ModePtt" Style="{StaticResource Segment}" GroupName="Mode" Content="Push-to-talk" Checked="Mode_Changed" />
-                            </WrapPanel>
-                            <TextBlock x:Name="ModeHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Camera" />
-                    <Border Style="{StaticResource Card}" Padding="16,14">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <v:HotkeyRecorderBox x:Name="CamRecorder" Width="260" />
-                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetCamHotkey_Click" />
-                            </StackPanel>
-                            <TextBlock x:Name="CamHotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
-                            <TextBlock x:Name="CamHotkeyHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </ScrollViewer>
 
