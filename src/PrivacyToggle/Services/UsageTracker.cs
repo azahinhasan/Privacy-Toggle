@@ -39,8 +39,9 @@ public sealed class UsageSession
     public bool FromCameraLog { get; set; }
 
     /// <summary>
-    /// A camera-log session that couldn't be confirmed: another app kept the camera busy the whole time,
-    /// so "the camera is in use" didn't prove this app was using it. Shown as "connected", not "in use".
+    /// A camera-log session that couldn't be confirmed: the app is one that also reconnects on its own when
+    /// others use the camera, and another app kept the camera busy, so "the camera is in use" didn't prove
+    /// this app was using it. Shown as "connected", not "in use".
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Uncertain { get; set; }
@@ -69,7 +70,7 @@ public sealed class RecordedRange
 /// (CapabilityAccessManager\ConsentStore: LastUsedTimeStart / LastUsedTimeStop, stop = 0 while in use),
 /// so this watches those records for changes and keeps every session itself, for 7 days.
 /// Windows sometimes stops writing those records, so microphone use is also read straight from
-/// the active audio capture sessions (polled every 2 s), and camera use from Frame Server's log of
+/// the active audio capture sessions (polled every second), and camera use from Frame Server's log of
 /// apps connecting to a camera (see <see cref="UsageSession.FromCameraLog"/>).
 /// </summary>
 public sealed class UsageTracker : IDisposable
@@ -92,7 +93,11 @@ public sealed class UsageTracker : IDisposable
     private readonly DispatcherTimer _cameraPoll;
     private readonly Dictionary<UsageSession, int> _cameraClients = new(); // open camera-log session -> process id
     private readonly Dictionary<string, int> _cameraHolders = new(); // app key -> process id of apps that open every camera that appears
-    private DateTime _lastCameraArrival = DateTime.MinValue; // UTC; when Frame Server last picked up a camera
+    private readonly HashSet<string> _cameraReactors = new(); // app keys seen reacting at least once (kept after the camera idles)
+    private DateTime _lastCameraArrival = DateTime.MinValue; // UTC; when a camera last appeared (log event 62, or turned back on)
+    private readonly List<CameraConnect> _recentConnects = new(); // last minute of connections, to spot several at once
+    private readonly Queue<CameraConnect> _pendingConnects = new(); // waiting GroupWindow before they're classified
+    private readonly DispatcherTimer _connectTimer;
     private EventLogWatcher? _cameraLog;
     private bool _cameraChecking;
     private readonly ManualResetEvent _stop = new(false);
@@ -126,8 +131,10 @@ public sealed class UsageTracker : IDisposable
         // Keeps "recorded until" fresh, catches anything the change watcher missed, and saves.
         _heartbeat = new DispatcherTimer(TimeSpan.FromSeconds(30), DispatcherPriority.Background, (_, _) => Heartbeat(), dispatcher);
 
-        _audioPoll = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, (_, _) => ScanAudio(), dispatcher);
-        _cameraPoll = new DispatcherTimer(TimeSpan.FromSeconds(3), DispatcherPriority.Background, async (_, _) => await CheckCameraClientsAsync(), dispatcher);
+        _audioPoll = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => ScanAudio(), dispatcher);
+        _cameraPoll = new DispatcherTimer(TimeSpan.FromSeconds(1.5), DispatcherPriority.Background, async (_, _) => await CheckCameraClientsAsync(), dispatcher);
+        _connectTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) => ClassifyPending(), dispatcher);
+        _connectTimer.Stop();
 
         Scan();
         ScanAudio();
@@ -156,6 +163,9 @@ public sealed class UsageTracker : IDisposable
         if (blocked == (open != null)) return;
         if (blocked) _history.Blocked.Add(new BlockedRange { Device = device, Start = DateTime.UtcNow });
         else open!.End = DateTime.UtcNow;
+        // A camera turned back on reappears to every app, and they reconnect to it. Frame Server only logs that
+        // (event 62) when it starts up itself, so note it here too.
+        if (device == UsageDevice.Camera && !blocked) _lastCameraArrival = DateTime.UtcNow;
         _dirty = true;
         Save();
         Changed?.Invoke();
@@ -265,11 +275,28 @@ public sealed class UsageTracker : IDisposable
     private const string CameraLogQuery = "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and (EventID=7 or EventID=62)]]";
     private const int CameraConnectEvent = 7, CameraArrivalEvent = 62;
 
+    private readonly record struct CameraConnect(int Pid, DateTime Time, bool AfterArrival);
+
     /// <summary>
     /// Connections this soon after a camera appears are apps reacting to the new camera (browsers read its
-    /// formats, virtual-camera apps grab it again), not a person starting to use it.
+    /// formats, virtual-camera apps grab it again), not a person starting to use it. A little slack before
+    /// the arrival too: PrivacyToggle may notice a camera came back slightly after the apps did.
     /// </summary>
     private static readonly TimeSpan ArrivalProbeWindow = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ArrivalSlack = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// When one app opens the camera, others that watch it (browsers' video services, virtual-camera apps)
+    /// reconnect within this much. Those followers are reactions; the app that went first is the real one,
+    /// unless it's an app already known to react like that.
+    /// </summary>
+    private static readonly TimeSpan GroupWindow = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Apps known to react (browsers' video services) also check the camera as they start; that isn't someone
+    /// using it. Only for known reactors: a camera app opening the camera as it starts is real use.
+    /// </summary>
+    private static readonly TimeSpan LaunchProbeWindow = TimeSpan.FromSeconds(10);
 
     /// <summary>Picks up apps already connected, then follows the log for new ones.</summary>
     private void WatchCameraLog()
@@ -280,19 +307,24 @@ public sealed class UsageTracker : IDisposable
             // the first idle check drops them if not. PrivacyToggle wasn't watching before, so count from now.
             var query = new EventLogQuery(CameraLogName, PathType.LogName,
                 "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and (EventID=7 or EventID=62) and TimeCreated[timediff(@SystemTime) <= 3600000]]]");
+            var connects = new List<CameraConnect>();
             using (var reader = new EventLogReader(query))
-            {
-                var pids = new Dictionary<int, bool>(); // pid -> only ever connected right after a camera appeared
                 for (var record = reader.ReadEvent(); record != null; record = reader.ReadEvent())
                     using (record)
                     {
                         var time = record.TimeCreated?.ToUniversalTime() ?? DateTime.UtcNow;
                         if (record.Id == CameraArrivalEvent) _lastCameraArrival = time;
-                        else if (record.ProcessId is int pid)
-                            pids[pid] = IsArrivalProbe(time) && pids.GetValueOrDefault(pid, true);
+                        else if (record.ProcessId is int pid) connects.Add(new CameraConnect(pid, time, IsAfterArrival(time)));
                     }
-                foreach (var (pid, probe) in pids) OnCameraClient(pid, DateTime.UtcNow, probe);
+            // In order, so apps become known reactors as they go. A process counts only if one of its
+            // connections wasn't a reaction.
+            var counted = new HashSet<int>();
+            foreach (var c in connects)
+            {
+                if (IsReaction(c, connects)) OnCameraClient(c.Pid, DateTime.UtcNow, reaction: true);
+                else counted.Add(c.Pid);
             }
+            foreach (var pid in counted) OnCameraClient(pid, DateTime.UtcNow, reaction: false);
 
             _cameraLog = new EventLogWatcher(new EventLogQuery(CameraLogName, PathType.LogName, CameraLogQuery));
             _cameraLog.EventRecordWritten += (_, e) =>
@@ -303,28 +335,68 @@ public sealed class UsageTracker : IDisposable
                 if (record.Id == CameraArrivalEvent)
                     _dispatcher.BeginInvoke(() => _lastCameraArrival = time);
                 else if (record.Id == CameraConnectEvent && record.ProcessId is int pid)
-                    _dispatcher.BeginInvoke(() => OnCameraClient(pid, time, IsArrivalProbe(time)));
+                    _dispatcher.BeginInvoke(() => QueueConnect(pid, time));
             };
             _cameraLog.Enabled = true;
         }
-        catch
+        catch (Exception ex) when (ex is EventLogException or UnauthorizedAccessException)
         {
             // Log missing or unreadable; camera use then comes only from Windows' usage records.
         }
     }
 
-    private bool IsArrivalProbe(DateTime connectUtc) =>
-        connectUtc >= _lastCameraArrival && connectUtc - _lastCameraArrival <= ArrivalProbeWindow;
+    private bool IsAfterArrival(DateTime connectUtc) =>
+        _lastCameraArrival != DateTime.MinValue && // none seen yet (and MinValue - slack would throw)
+        connectUtc >= _lastCameraArrival - ArrivalSlack && connectUtc - _lastCameraArrival <= ArrivalProbeWindow;
 
-    private void OnCameraClient(int pid, DateTime startUtc, bool arrivalProbe)
+    /// <summary>Holds a new connection for <see cref="GroupWindow"/>, so connections right after it can be seen too.</summary>
+    private void QueueConnect(int pid, DateTime time)
+    {
+        var connect = new CameraConnect(pid, time, IsAfterArrival(time));
+        _recentConnects.Add(connect);
+        _recentConnects.RemoveAll(c => time - c.Time > TimeSpan.FromMinutes(1));
+        _pendingConnects.Enqueue(connect);
+        _connectTimer.Start();
+    }
+
+    private void ClassifyPending()
+    {
+        var ready = DateTime.UtcNow - GroupWindow;
+        while (_pendingConnects.TryPeek(out var c) && c.Time <= ready)
+        {
+            _pendingConnects.Dequeue();
+            // The arrival may have been noted after the connection arrived (PrivacyToggle saw the camera come back late).
+            var connect = c with { AfterArrival = c.AfterArrival || IsAfterArrival(c.Time) };
+            OnCameraClient(connect.Pid, connect.Time, IsReaction(connect, _recentConnects));
+        }
+        if (_pendingConnects.Count == 0) _connectTimer.Stop();
+    }
+
+    /// <summary>
+    /// True when a connection is the system or an app reacting to something rather than a person starting
+    /// to use the camera: right after a camera appeared, right after another process connected, or an app
+    /// known to react that is just starting or that others then followed (they're reacting together).
+    /// A lone connection counts, even from a known reactor: that's how a browser starts a call.
+    /// </summary>
+    private bool IsReaction(CameraConnect c, IReadOnlyCollection<CameraConnect> all)
+    {
+        if (c.AfterArrival) return true;
+        if (all.Any(o => o.Pid != c.Pid && o.Time < c.Time && c.Time - o.Time <= GroupWindow)) return true;
+        if (ExePath(c.Pid) is not { } path || !_cameraReactors.Contains("np:" + path)) return false;
+        if (AppStartUtc(c.Pid) is { } started && c.Time >= started && c.Time - started <= LaunchProbeWindow) return true;
+        return all.Any(o => o.Pid != c.Pid && o.Time >= c.Time && o.Time - c.Time <= GroupWindow);
+    }
+
+    private void OnCameraClient(int pid, DateTime startUtc, bool reaction)
     {
         if (pid == Environment.ProcessId || ExePath(pid) is not { } path) return; // gone already
         string appKey = "np:" + path;
-        if (arrivalProbe)
+        if (reaction)
         {
             // Not counted as use. It may keep the camera busy, though (virtual-camera apps hold it all the time),
             // which makes "the camera is in use" unreliable for other apps until the camera goes idle.
             _cameraHolders[appKey] = pid;
+            _cameraReactors.Add(appKey);
             _cameraPoll.Start();
             return;
         }
@@ -377,8 +449,10 @@ public sealed class UsageTracker : IDisposable
                 _cameraClients.Remove(session);
                 changed = true;
             }
+            // Only apps known to react can't be told apart from their reactions; an app that only ever
+            // connected on its own (a camera app, a call) is real use even while a holder keeps the camera busy.
             if (_cameraHolders.Count > 0)
-                foreach (var session in _cameraClients.Keys.Where(s => !s.Uncertain))
+                foreach (var session in _cameraClients.Keys.Where(s => !s.Uncertain && _cameraReactors.Contains(s.AppKey)))
                 {
                     session.Uncertain = true;
                     changed = true;
@@ -466,6 +540,36 @@ public sealed class UsageTracker : IDisposable
             return QueryFullProcessImageName(h, 0, sb, ref size) ? sb.ToString() : null;
         }
         finally { CloseHandle(h); }
+    }
+
+    /// <summary>
+    /// When the app a process belongs to started: the process itself, or for multi-process apps (a browser's
+    /// video helper) its topmost parent with the same exe. Null if that can't be read.
+    /// </summary>
+    private static DateTime? AppStartUtc(int pid)
+    {
+        string? path = ExePath(pid);
+        DateTime? started = null;
+        for (int depth = 0; depth < 8 && path != null; depth++)
+        {
+            IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (h == IntPtr.Zero) break;
+            int parent;
+            try
+            {
+                if (!GetProcessTimes(h, out long created, out _, out _, out _)) break;
+                var createdUtc = DateTime.FromFileTimeUtc(created);
+                if (started != null && createdUtc > started) break; // a reused id, not the real parent
+                started = createdUtc;
+                var info = new PROCESS_BASIC_INFORMATION();
+                if (NtQueryInformationProcess(h, 0, ref info, Marshal.SizeOf<PROCESS_BASIC_INFORMATION>(), out _) != 0) break;
+                parent = (int)info.InheritedFromUniqueProcessId;
+            }
+            finally { CloseHandle(h); }
+            if (parent == 0 || !string.Equals(ExePath(parent), path, StringComparison.OrdinalIgnoreCase)) break;
+            pid = parent;
+        }
+        return started;
     }
 
     private static IEnumerable<(string AppKey, long Start, long Stop)> ReadStore(UsageDevice device)
@@ -637,4 +741,17 @@ public sealed class UsageTracker : IDisposable
 
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_BASIC_INFORMATION
+    {
+        public IntPtr ExitStatus, PebBaseAddress, AffinityMask, BasePriority, UniqueProcessId, InheritedFromUniqueProcessId;
+    }
+
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(IntPtr process, int infoClass, ref PROCESS_BASIC_INFORMATION info,
+        int size, out int returnLength);
 }
