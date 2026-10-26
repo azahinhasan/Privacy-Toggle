@@ -772,7 +772,11 @@ public sealed class AppController : IDisposable
             if (_taskbarSpeed == null)
             {
                 _taskbarSpeed = new TaskbarSpeedWindow(S.TaskbarSpeedShow);
-                _taskbarSpeed.Clicked += () => ShowSettings(PrivacyDevice.Network);
+                _taskbarSpeed.Clicked += () =>
+                {
+                    ShowSettings();
+                    _settingsWindow?.ShowTaskbarSpeedSettings();
+                };
                 _taskbarSpeed.Show();
             }
             else

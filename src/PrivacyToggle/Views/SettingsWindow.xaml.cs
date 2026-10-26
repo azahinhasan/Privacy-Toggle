@@ -376,6 +376,18 @@ public partial class SettingsWindow : Window
     public void ShowPage(PrivacyDevice device) =>
         (device switch { PrivacyDevice.Camera => NavCamera, PrivacyDevice.Network => NavNetwork, _ => NavMic }).IsChecked = true;
 
+    /// <summary>Opens the Network page scrolled to the Taskbar speed settings (clicking the taskbar speed lands here).</summary>
+    public void ShowTaskbarSpeedSettings()
+    {
+        ShowPage(PrivacyDevice.Network);
+        // After the page has been laid out, so the section's position is known.
+        Dispatcher.BeginInvoke(() =>
+        {
+            var top = TaskbarSpeedSection.TransformToAncestor(PageNetwork).Transform(new Point(0, 0)).Y;
+            PageNetwork.ScrollToVerticalOffset(PageNetwork.VerticalOffset + top - 12);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private void MicCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggle();
     private void CamCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggleCamera();
     private void NetCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggleNetwork();

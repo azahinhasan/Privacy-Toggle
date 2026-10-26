@@ -554,7 +554,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Taskbar speed" />
+                    <TextBlock x:Name="TaskbarSpeedSection" Style="{StaticResource SectionTitle}" Text="Taskbar speed" />
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <CheckBox x:Name="TaskbarSpeedBox" Style="{StaticResource ToggleSwitch}" Checked="TaskbarSpeed_Changed" Unchecked="TaskbarSpeed_Changed">
