@@ -107,7 +107,8 @@
             <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10">
                 <StackPanel>
                     <TextBlock Style="{StaticResource PageTitle}" Text="Overview" />
-                    <Grid>
+                    <!-- Right margin leaves room for the cards' hard shadow; the ScrollViewer clips anything past its edge. -->
+                    <Grid Margin="0,0,6,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="16" />

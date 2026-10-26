@@ -30,7 +30,8 @@
                    Text="Which apps use your microphone and camera." />
 
         <!-- ============ Summary tiles ============ -->
-        <UniformGrid x:Name="Tiles" Columns="4" Margin="-6,0,-6,2">
+        <!-- No negative right margin: the last tile keeps its 6px so its hard shadow isn't clipped by the ScrollViewer. -->
+        <UniformGrid x:Name="Tiles" Columns="4" Margin="-6,0,0,2">
             <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
