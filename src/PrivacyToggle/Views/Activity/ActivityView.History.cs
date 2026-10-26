@@ -123,6 +123,7 @@ public partial class ActivityView
         if (Legend.Children.Count == 0) BuildLegend();
 
         var from = now - ActivityModel.Length(_range);
+        RefreshTotals(from, now);
         var apps = BuildHistory(from, now);
         bool list = ViewList.IsChecked == true;
 
@@ -149,6 +150,53 @@ public partial class ActivityView
         EmptyState.Visibility = Visibility.Collapsed;
         if (list) RefreshList(apps, from, now);
         else RefreshTimeline(apps, from, now);
+    }
+
+    /// <summary>
+    /// "Last 7 days: Microphone 12h 30m · Camera 2h 10m · Network 4.2 GB (↓ 3.9 GB · ↑ 300 MB)". Microphone and camera
+    /// time counts once however many apps used the device at the same time; network is every byte of every app.
+    /// </summary>
+    private void RefreshTotals(DateTime from, DateTime now)
+    {
+        var usage = _app!.Usage;
+        var spans = ActivityModel.Build(usage.Sessions, usage.Blocked, from, now, ActivityFilter.All, ActivitySort.LiveFirst)
+            .SelectMany(a => a.Spans).ToList();
+        var mic = ActivityModel.Union(spans.Where(s => s.Device == UsageDevice.Microphone));
+        var cam = ActivityModel.Union(spans.Where(s => s.Device == UsageDevice.Camera));
+        var net = _app.NetworkUsage.Totals(from, now).Values;
+        long received = net.Sum(t => t.Received), sent = net.Sum(t => t.Sent);
+
+        RangeTotals.Children.Clear();
+        string range = _range switch
+        {
+            ActivityRange.Hour1 => "Last hour",
+            ActivityRange.Hours6 => "Last 6 hours",
+            ActivityRange.Hours24 => "Last 24 hours",
+            _ => "Last 7 days",
+        };
+        var label = new TextBlock { Text = range + ":", FontSize = 13, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+        RangeTotals.Children.Add(label);
+
+        void Total(Lane lane, string name, string value, string? detail)
+        {
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
+            var (chip, _) = ResourceChip(lane, name);
+            chip.Margin = new Thickness(0, 0, 6, 0);
+            item.Children.Add(chip);
+            item.Children.Add(ResourceCard.Tabular(new TextBlock { Text = value, FontSize = 13, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center }));
+            if (detail != null)
+            {
+                var d = ResourceCard.Tabular(new TextBlock { Text = detail, FontSize = 12, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+                d.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                item.Children.Add(d);
+            }
+            RangeTotals.Children.Add(item);
+        }
+        if (_filter is ActivityFilter.All or ActivityFilter.Microphone) Total(Lane.Microphone, "Microphone", Duration(mic), null);
+        if (_filter is ActivityFilter.All or ActivityFilter.Camera) Total(Lane.Camera, "Camera", Duration(cam), null);
+        if (_filter is ActivityFilter.All or ActivityFilter.Network)
+            Total(Lane.Network, "Network", Bytes(received + sent), $"(↓ {Bytes(received)} · ↑ {Bytes(sent)})");
     }
 
     private void TickHistory(DateTime now)
@@ -677,7 +725,9 @@ public partial class ActivityView
         if (_meter == null || _micRows.Count == 0 || !Active) return;
         var levels = _meter.Sample();
         foreach (var row in _micRows)
+        {
             row.Meter?.Push(levels.TryGetValue(row.AppKey, out var level) ? level : null);
+        }
     }
 
     /// <summary>A gentle on/off pulse (about a second), or steady when reduced motion is on.</summary>

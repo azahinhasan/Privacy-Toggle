@@ -10,7 +10,7 @@
     <AssemblyName>PrivacyToggle</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.6.0</Version>
+    <Version>1.7.0</Version>
     <!-- Custom Main: the same EXE also runs as the camera helper service (see Program.cs). -->
     <StartupObject>PrivacyToggle.Program</StartupObject>
     <Product>PrivacyToggle</Product>

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
@@ -168,25 +167,6 @@ public partial class ActivityView : UserControl
         Tint(FilterMic, "MicUsage");
         Tint(FilterCam, "CamUsage");
         Tint(FilterNet, "NetUsage");
-    }
-
-    // ---------------- header ----------------
-
-    private void Privacy_Click(object sender, RoutedEventArgs e)
-    {
-        var menu = PrivacyButton.ContextMenu;
-        menu.PlacementTarget = PrivacyButton;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        menu.IsOpen = true;
-    }
-
-    private void MicPrivacy_Click(object sender, RoutedEventArgs e) => Open("ms-settings:privacy-microphone");
-    private void CamPrivacy_Click(object sender, RoutedEventArgs e) => Open("ms-settings:privacy-webcam");
-    private void NetPrivacy_Click(object sender, RoutedEventArgs e) => Open("ms-settings:network-status");
-
-    private static void Open(string target)
-    {
-        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); } catch { }
     }
 
     // ---------------- refresh ----------------

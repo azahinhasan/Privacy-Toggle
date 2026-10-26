@@ -47,8 +47,6 @@ public partial class SettingsWindow : Window
         _ = CheckForUpdatesAsync(); // quietly, so the About item can show "NEW"
 
         _app.StateChanged += RefreshStatus;
-        _app.Usage.Changed += RefreshSidebar;
-        _app.NetworkUsage.Changed += RefreshSidebar;
         _app.DevicesChanged += RefreshDevices;
         _app.CameraDevicesChanged += RefreshCameras;
         _app.NetworkAdaptersChanged += RefreshNetwork;
@@ -58,8 +56,6 @@ public partial class SettingsWindow : Window
         {
             ActivityPage.Detach();
             _app.StateChanged -= RefreshStatus;
-            _app.Usage.Changed -= RefreshSidebar;
-            _app.NetworkUsage.Changed -= RefreshSidebar;
             _app.DevicesChanged -= RefreshDevices;
             _app.CameraDevicesChanged -= RefreshCameras;
             _app.NetworkAdaptersChanged -= RefreshNetwork;
@@ -211,16 +207,11 @@ public partial class SettingsWindow : Window
     // ---------------- status ----------------
 
     /// <summary>
-    /// The sidebar status box with live counts: "Mic live · 2" / "Mic off", "Camera live · 1" / "Camera off",
-    /// "Network · 7 apps" / "Network quiet". Runs on every usage change (the network one ticks every second).
+    /// The sidebar status box: whether each one is on or off ("Mic on", "Camera off", "Network on"). How many apps
+    /// use them is on the Activity page.
     /// </summary>
     private void RefreshSidebar()
     {
-        var live = ActivityModel.LiveNow(_app.Usage.Sessions, _app.Usage.Blocked, DateTime.Now);
-        int micApps = live.Count(l => l.Spans.Any(s => s.Device == UsageDevice.Microphone));
-        int camApps = live.Count(l => l.Spans.Any(s => s.Device == UsageDevice.Camera));
-        int netApps = _app.NetworkUsage.Live.Count(l => l.DownRate + l.UpRate > ActivityView.NetworkActiveRate);
-
         void Set(System.Windows.Shapes.Ellipse dot, TextBlock chip, string text, string color)
         {
             chip.Text = text;
@@ -231,18 +222,22 @@ public partial class SettingsWindow : Window
         {
             case MicState.Muted: Set(MicDot, MicChip, "Mic off", "StatusOff"); break;
             case MicState.NoDevice: Set(MicDot, MicChip, "No microphone", "NoneColor"); break;
-            default: Set(MicDot, MicChip, micApps > 0 ? $"Mic live · {micApps}" : "Mic on", "StatusOn"); break;
+            default: Set(MicDot, MicChip, "Mic on", "StatusOn"); break;
         }
         switch (_app.Camera.State)
         {
             case CameraState.Off: Set(CamDot, CamChip, "Camera off", "StatusOff"); break;
-            case CameraState.On: Set(CamDot, CamChip, camApps > 0 ? $"Camera live · {camApps}" : "Camera on", "StatusOn"); break;
+            case CameraState.On: Set(CamDot, CamChip, "Camera on", "StatusOn"); break;
             case CameraState.NoDevice: Set(CamDot, CamChip, "No camera", "NoneColor"); break;
             default: Set(CamDot, CamChip, "Camera control not installed", "NoneColor"); break;
         }
-        if (_app.Network.State == NetworkState.Off) Set(NetDot, NetChip, "Network off", "StatusOff");
-        else if (netApps > 0) Set(NetDot, NetChip, $"Network · {netApps} app{(netApps == 1 ? "" : "s")}", "NetUsage");
-        else Set(NetDot, NetChip, "Network quiet", "NetUsage");
+        switch (_app.Network.State)
+        {
+            case NetworkState.Off: Set(NetDot, NetChip, "Network off", "StatusOff"); break;
+            case NetworkState.On: Set(NetDot, NetChip, "Network on", "StatusOn"); break;
+            case NetworkState.NoDevice: Set(NetDot, NetChip, "No network adapter", "NoneColor"); break;
+            default: Set(NetDot, NetChip, "Network control unavailable", "NoneColor"); break;
+        }
     }
 
     private void RefreshStatus()
@@ -407,6 +402,15 @@ public partial class SettingsWindow : Window
             var top = TaskbarSpeedSection.TransformToAncestor(PageNetwork).Transform(new Point(0, 0)).Y;
             PageNetwork.ScrollToVerticalOffset(PageNetwork.VerticalOffset + top - 12);
         }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Clicking an Overview card (not its button: the button handles its own click) opens that device's page.
+    /// </summary>
+    private void OverviewCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string page } && Enum.TryParse<PrivacyDevice>(page, out var device))
+            ShowPage(device);
     }
 
     private void MicCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggle();

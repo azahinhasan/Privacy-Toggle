@@ -42,7 +42,7 @@ public partial class ActivityView
         _micCard.ActionClicked += () => _app?.UserToggle();
         _camCard.ActionClicked += () => _app?.UserToggleCamera();
         _netCard.ActionClicked += () => _app?.UserToggleNetwork();
-        foreach (var card in new[] { _micCard, _camCard, _netCard }) card.ExpandedChanged += AlignCards;
+        AlignCards();
         Cards.Children.Add(_micCard);
         Cards.Children.Add(_camCard);
         Cards.Children.Add(_netCard);
@@ -79,15 +79,12 @@ public partial class ActivityView
     }
 
     /// <summary>
-    /// Collapsed cards are always the same height (each reserves room for two apps). An expanded card grows on its
-    /// own: the others in its row stay at their normal height instead of stretching to match it.
+    /// Cards never stretch to their row: collapsed ones are the same height anyway (each reserves room for two
+    /// apps), and an expanded one is exactly as tall as its own apps, whatever the cards beside it show.
     /// </summary>
     private void AlignCards()
     {
-        var cards = new[] { _micCard, _camCard, _netCard };
-        bool any = cards.Any(c => c.Expanded);
-        foreach (var card in cards)
-            card.VerticalAlignment = any && !card.Expanded ? VerticalAlignment.Top : VerticalAlignment.Stretch;
+        foreach (var card in new[] { _micCard, _camCard, _netCard }) card.VerticalAlignment = VerticalAlignment.Top;
     }
 
     private void RefreshCards(DateTime now)
@@ -135,9 +132,8 @@ public partial class ActivityView
         _micCard.SetIdle(n > 0 ? null : IdleText(UsageDevice.Microphone, now));
         var (total, apps) = ActivityModel.DeviceToday(usage.Sessions, usage.Blocked, now, UsageDevice.Microphone);
         var state = _app.Mic.State;
-        string action = state == MicState.NoDevice ? "No microphone"
-            : n == 1 ? "Mute" : n > 1 ? "Mute all"
-            : state == MicState.Muted ? "Unmute mic" : "Block mic";
+        // The microphone is either live or muted.
+        string action = state == MicState.NoDevice ? "No microphone" : state == MicState.Muted ? "Unmute" : "Mute";
         _micCard.SetFooter(Duration(total), $"· {apps} app{(apps == 1 ? "" : "s")}", action, state != MicState.NoDevice);
     }
 
@@ -173,7 +169,7 @@ public partial class ActivityView
             CameraState.Unavailable => "Not installed",
             CameraState.NoDevice => "No camera",
             CameraState.Off => "Turn on",
-            _ => n > 0 ? "Turn off" : "Block camera",
+            _ => "Turn off",
         };
         _camCard.SetFooter(Duration(total), $"· {apps} app{(apps == 1 ? "" : "s")}", action, usable);
     }
@@ -292,8 +288,8 @@ public partial class ActivityView
         var state = _app.Network.State;
         string action = state switch
         {
-            NetworkState.Off => "Turn on",
-            NetworkState.On => "Turn off",
+            NetworkState.Off => "Connect",
+            NetworkState.On => "Disconnect",
             NetworkState.NoDevice => "No adapter",
             _ => "Not installed",
         };
