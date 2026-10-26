@@ -23,9 +23,6 @@ public partial class ActivityView : UserControl
     private bool _rangeChosen;
     private bool _loading = true;
 
-    /// <summary>The network card's Details button: the window shows the Network page.</summary>
-    public event Action? NetworkDetailsRequested;
-
     public ActivityView()
     {
         InitializeComponent();

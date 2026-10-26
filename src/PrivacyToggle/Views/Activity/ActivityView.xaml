@@ -56,8 +56,8 @@
                 <TextBlock Text="Right now" FontSize="16" FontWeight="ExtraBold" Margin="8,0,0,1" VerticalAlignment="Center" />
             </StackPanel>
         </DockPanel>
-        <!-- Cards wrap on narrow windows (min 270px each) and align to the top. -->
-        <WrapPanel x:Name="Cards" />
+        <!-- One to three columns (wrapping on narrow windows); cards in a row share its height. -->
+        <Grid x:Name="Cards" />
         <!-- Announces (once) when a new app starts using the camera or microphone. -->
         <TextBlock x:Name="LiveAnnouncer" Height="0" Focusable="False" />
 

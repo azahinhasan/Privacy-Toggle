@@ -10,15 +10,24 @@ namespace PrivacyToggle.Views;
 /// <summary>
 /// One "Right now" card (Microphone, Camera or Network): a header with a status pill, the apps using the
 /// resource now (at most <see cref="MaxRows"/> until expanded in place), an idle line when there are none,
-/// and a "Today" footer with an action button. Live cards take the resource colour for their border and
+/// and a "Today" footer with an action button filled in the resource colour. The footer sits at the bottom,
+/// so cards stretched to the same height line up. Live cards take the resource colour for their border and
 /// hard shadow; idle cards get a muted border and no shadow.
 /// </summary>
 public sealed class ResourceCard : Border
 {
-    public const int MaxRows = 3;
+    public const int MaxRows = 2;
+
+    /// <summary>Height of one app row (the view builds rows exactly this tall).</summary>
+    public const double RowHeight = 44;
+
+    // Space the live area always takes: the network rate line, two rows and the "Show more" button,
+    // so every card is the same height whether it lists 0, 1 or 2 apps.
+    private const double SubLine = 27, MoreButton = 40;
+    private static readonly double BodyHeight = SubLine + 4 + MaxRows * (RowHeight + 6) + MoreButton;
 
     private readonly string _colorKey, _onTextKey, _name;
-    private readonly TextBlock _pillText = new() { FontSize = 11, FontWeight = FontWeights.Black };
+    private readonly TextBlock _pillText = new() { FontSize = 10.5, FontWeight = FontWeights.Black };
     private readonly Border _pill;
     private readonly StackPanel _sub = new() { Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };
     private readonly StackPanel _rows = new() { Margin = new Thickness(0, 4, 0, 0) };
@@ -34,6 +43,9 @@ public sealed class ResourceCard : Border
 
     public event Action? ActionClicked;
 
+    /// <summary>"Show more" / "Show less" was clicked.</summary>
+    public event Action? ExpandedChanged;
+
     public ResourceCard(string name, FrameworkElement glyph, string colorKey, string onTextKey)
     {
         (_name, _colorKey, _onTextKey) = (name, colorKey, onTextKey);
@@ -41,14 +53,13 @@ public sealed class ResourceCard : Border
         BorderThickness = new Thickness(2);
         Padding = new Thickness(16, 14, 16, 14);
         Margin = new Thickness(0, 0, 12, 14); // right/bottom: room for the hard shadow and the gap
-        VerticalAlignment = VerticalAlignment.Top; // an expanded card doesn't stretch its neighbours
         SetResourceReference(BackgroundProperty, "CardBg");
 
-        var panel = new StackPanel();
+        var layout = new DockPanel();
 
         // header: glyph + name in the resource colour, status pill on the right
         var header = new DockPanel();
-        _pill = new Border { CornerRadius = new CornerRadius(999), Padding = new Thickness(9, 2, 9, 3), Child = _pillText, VerticalAlignment = VerticalAlignment.Center };
+        _pill = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(7, 2, 7, 2), Child = _pillText, VerticalAlignment = VerticalAlignment.Center };
         DockPanel.SetDock(_pill, Dock.Right);
         header.Children.Add(_pill);
         var title = new StackPanel { Orientation = Orientation.Horizontal };
@@ -57,33 +68,22 @@ public sealed class ResourceCard : Border
         titleText.SetResourceReference(TextBlock.ForegroundProperty, colorKey);
         title.Children.Add(titleText);
         header.Children.Add(title);
-        panel.Children.Add(header);
+        DockPanel.SetDock(header, Dock.Top);
+        layout.Children.Add(header);
 
-        panel.Children.Add(_sub);
-        panel.Children.Add(_rows);
-
-        _more = new Button { Style = (Style)Application.Current.FindResource("DashedButton"), Margin = new Thickness(0, 6, 0, 2) };
-        _more.SetResourceReference(Control.ForegroundProperty, colorKey);
-        _more.Click += (_, _) =>
-        {
-            Expanded = !Expanded;
-            ShowRows();
-        };
-        panel.Children.Add(_more);
-
-        _idle.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
-        panel.Children.Add(_idle);
-
+        // footer (docked at the bottom before the body, so it stays there however tall the card gets)
+        var bottom = new StackPanel();
         var divider = new Border { Height = 1.5, Margin = new Thickness(0, 12, 0, 10) };
         divider.SetResourceReference(BackgroundProperty, "SectionDivider");
-        panel.Children.Add(divider);
-
+        bottom.Children.Add(divider);
         var footer = new DockPanel(); // the button keeps its size; the totals take the rest and trim if they must
-        _action = new Button { Style = (Style)Application.Current.FindResource("SubtleButton"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 2, 2) };
+        _action = new Button { Style = (Style)Application.Current.FindResource("CardActionButton"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 3, 3) };
+        _action.SetResourceReference(Control.BackgroundProperty, colorKey);
+        _action.SetResourceReference(Control.ForegroundProperty, onTextKey);
         _action.Click += (_, _) => ActionClicked?.Invoke();
         DockPanel.SetDock(_action, Dock.Right);
         footer.Children.Add(_action);
-        var today = new StackPanel();
+        var today = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
         var todayLabel = new TextBlock { Text = "Today", FontSize = 11, FontWeight = FontWeights.SemiBold };
         todayLabel.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
         today.Children.Add(todayLabel);
@@ -95,9 +95,28 @@ public sealed class ResourceCard : Border
         totals.Children.Add(_apps);
         today.Children.Add(totals);
         footer.Children.Add(today);
-        panel.Children.Add(footer);
+        bottom.Children.Add(footer);
+        DockPanel.SetDock(bottom, Dock.Bottom);
+        layout.Children.Add(bottom);
 
-        Child = panel;
+        // live area
+        var body = new StackPanel { MinHeight = BodyHeight };
+        body.Children.Add(_sub);
+        body.Children.Add(_rows);
+        _more = new Button { Style = (Style)Application.Current.FindResource("DashedButton"), Margin = new Thickness(0, 6, 0, 2), Height = MoreButton - 8 };
+        _more.SetResourceReference(Control.ForegroundProperty, colorKey);
+        _more.Click += (_, _) =>
+        {
+            Expanded = !Expanded;
+            ExpandedChanged?.Invoke();
+            ShowRows();
+        };
+        body.Children.Add(_more);
+        _idle.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+        body.Children.Add(_idle);
+        layout.Children.Add(body);
+
+        Child = layout;
         AutomationProperties.SetName(this, name);
         SetLive(false);
         ShowRows(); // no rows yet: hides the "Show more" button

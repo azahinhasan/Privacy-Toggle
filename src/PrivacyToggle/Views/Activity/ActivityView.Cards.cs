@@ -38,23 +38,36 @@ public partial class ActivityView
     {
         _micCard = new ResourceCard("Microphone", Glyphs.Device(UsageDevice.Microphone, 18), "MicUsage", "MicOnText");
         _camCard = new ResourceCard("Camera", Glyphs.Device(UsageDevice.Camera, 18), "CamUsage", "CamOnText");
-        _netCard = new ResourceCard("Network", Glyphs.Network(18), "NetUsage", "NetOnText");
+        _netCard = new ResourceCard("Network", Glyphs.Transfer(18), "NetUsage", "NetOnText");
         _micCard.ActionClicked += () => _app?.UserToggle();
         _camCard.ActionClicked += () => _app?.UserToggleCamera();
-        _netCard.ActionClicked += () => NetworkDetailsRequested?.Invoke();
+        _netCard.ActionClicked += () => _app?.UserToggleNetwork();
+        foreach (var card in new[] { _micCard, _camCard, _netCard }) card.ExpandedChanged += AlignCards;
         Cards.Children.Add(_micCard);
         Cards.Children.Add(_camCard);
         Cards.Children.Add(_netCard);
     }
 
-    /// <summary>Three columns on a wide window, fewer when narrow; every card at least <see cref="MinCardWidth"/> wide.</summary>
+    /// <summary>
+    /// Three columns on a wide window, fewer when narrow (every card at least <see cref="MinCardWidth"/> wide).
+    /// Cards stretch to their row's height, so they're the same height side by side.
+    /// </summary>
     private void LayoutCards()
     {
         double width = Cards.ActualWidth;
         if (width <= 0) return;
         int columns = Math.Clamp((int)((width + 0.5) / (MinCardWidth + CardGap)), 1, 3);
-        double cardWidth = Math.Floor(width / columns) - CardGap;
-        foreach (var card in new[] { _micCard, _camCard, _netCard }) card.Width = Math.Max(MinCardWidth - CardGap, cardWidth);
+        if (Cards.ColumnDefinitions.Count == columns) return;
+        Cards.ColumnDefinitions.Clear();
+        Cards.RowDefinitions.Clear();
+        for (int c = 0; c < columns; c++) Cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var cards = new[] { _micCard, _camCard, _netCard };
+        for (int r = 0; r < (cards.Length + columns - 1) / columns; r++) Cards.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (int i = 0; i < cards.Length; i++)
+        {
+            Grid.SetColumn(cards[i], i % columns);
+            Grid.SetRow(cards[i], i / columns);
+        }
     }
 
     private void CollapseCards()
@@ -62,6 +75,19 @@ public partial class ActivityView
         _micCard.CollapseRows();
         _camCard.CollapseRows();
         _netCard.CollapseRows();
+        AlignCards();
+    }
+
+    /// <summary>
+    /// Collapsed cards are always the same height (each reserves room for two apps). An expanded card grows on its
+    /// own: the others in its row stay at their normal height instead of stretching to match it.
+    /// </summary>
+    private void AlignCards()
+    {
+        var cards = new[] { _micCard, _camCard, _netCard };
+        bool any = cards.Any(c => c.Expanded);
+        foreach (var card in cards)
+            card.VerticalAlignment = any && !card.Expanded ? VerticalAlignment.Top : VerticalAlignment.Stretch;
     }
 
     private void RefreshCards(DateTime now)
@@ -166,7 +192,7 @@ public partial class ActivityView
     private LiveRow DeviceRow(string appKey, DateTime start, string? subtitle, bool meter)
     {
         var app = AppIdentity.For(appKey);
-        var grid = new Grid { Margin = new Thickness(0, 7, 0, 7) };
+        var grid = new Grid { Height = ResourceCard.RowHeight, Margin = new Thickness(0, 3, 0, 3) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -184,7 +210,7 @@ public partial class ActivityView
         var row = new LiveRow { AppKey = appKey, Element = grid, Start = start, NewBadge = badge };
         if (meter)
         {
-            row.Meter = new LevelMeter { Margin = new Thickness(0, 5, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+            row.Meter = new LevelMeter { Margin = new Thickness(0, 6, 0, 0) };
             row.Meter.SetResourceReference(LevelMeter.BarBrushProperty, "MicUsage");
             text.Children.Add(row.Meter);
         }
@@ -262,7 +288,17 @@ public partial class ActivityView
             : NetworkIdleText());
         var today = usage.Totals(1);
         long bytes = today.Sum(t => t.Traffic.Total);
-        _netCard.SetFooter(Bytes(bytes), $"· {today.Count} app{(today.Count == 1 ? "" : "s")}", "Details", true);
+        // Turns the whole network (Wi-Fi and wired) off or back on, like the Network page's switch.
+        var state = _app.Network.State;
+        string action = state switch
+        {
+            NetworkState.Off => "Turn on",
+            NetworkState.On => "Turn off",
+            NetworkState.NoDevice => "No adapter",
+            _ => "Not installed",
+        };
+        _netCard.SetFooter(Bytes(bytes), $"· {today.Count} app{(today.Count == 1 ? "" : "s")}", action,
+            state is NetworkState.On or NetworkState.Off && !_app.Network.Busy);
     }
 
     private (DateTime At, NetworkSession? Session) _lastNet = (DateTime.MinValue, null);
@@ -282,7 +318,7 @@ public partial class ActivityView
     private LiveRow NetworkRow(string appKey)
     {
         var app = AppIdentity.For(appKey);
-        var grid = new Grid { Margin = new Thickness(0, 7, 0, 7) };
+        var grid = new Grid { Height = ResourceCard.RowHeight, Margin = new Thickness(0, 3, 0, 3) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

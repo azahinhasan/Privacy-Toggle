@@ -44,7 +44,6 @@ public partial class SettingsWindow : Window
         NetRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
 
         ActivityPage.Attach(_app);
-        ActivityPage.NetworkDetailsRequested += () => ShowPage(PrivacyDevice.Network);
         _ = CheckForUpdatesAsync(); // quietly, so the About item can show "NEW"
 
         _app.StateChanged += RefreshStatus;

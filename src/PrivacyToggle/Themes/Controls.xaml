@@ -412,6 +412,53 @@
         </Setter>
     </Style>
 
+    <!--
+        Activity card action ("Mute all", "Turn off"): filled with the card's colour (set Background and
+        Foreground), an ink edge and a small hard shadow; it sinks onto the shadow when pressed.
+    -->
+    <Style x:Key="CardActionButton" TargetType="Button">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="Margin" Value="0,0,3,3" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="Shadow" CornerRadius="7" Background="{DynamicResource Ink}" Opacity="0.85">
+                            <Border.RenderTransform>
+                                <TranslateTransform X="3" Y="3" />
+                            </Border.RenderTransform>
+                        </Border>
+                        <Border x:Name="Bd" CornerRadius="7" Padding="{TemplateBinding Padding}" BorderThickness="2"
+                                Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Ink}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform X="3" Y="3" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="Shadow" Property="Visibility" Value="Hidden" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="LinkButton" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="Bold" />

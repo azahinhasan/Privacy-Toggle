@@ -50,6 +50,17 @@ public static class Glyphs
         return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center };
     }
 
+    private static readonly Geometry Arrows = Geometry.Parse("M8,20 V5 M4,9 L8,5 L12,9 M16,4 V19 M12,15 L16,19 L20,15");
+
+    /// <summary>Up/down arrows (data sent and received), for the network card's header.</summary>
+    public static FrameworkElement Transfer(double size, string brushKey = "NetUsage")
+    {
+        var path = new Path { Data = Arrows, StrokeThickness = 2.4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
+        path.SetResourceReference(Shape.StrokeProperty, brushKey);
+        var canvas = new Canvas { Width = 24, Height = 24, Children = { path } };
+        return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center };
+    }
+
     private static Path Filled(Geometry g, string brushKey)
     {
         var p = new Path { Data = g };
@@ -375,7 +386,7 @@ public sealed class ActivityTrack : TimeElement
 /// </summary>
 public sealed class LevelMeter : FrameworkElement
 {
-    public const int Bars = 22;
+    public const int MaxBars = 80; // enough for the widest card; the meter shows as many as fit
     private readonly Queue<double> _levels = new();
 
     public static readonly DependencyProperty BarBrushProperty = DependencyProperty.Register(nameof(BarBrush), typeof(Brush),
@@ -389,7 +400,7 @@ public sealed class LevelMeter : FrameworkElement
 
     public LevelMeter()
     {
-        Width = Bars * 3;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
         Height = 10;
         IsHitTestVisible = false;
     }
@@ -398,23 +409,25 @@ public sealed class LevelMeter : FrameworkElement
     public void Push(double? level)
     {
         _levels.Enqueue(level ?? -1);
-        while (_levels.Count > Bars) _levels.Dequeue();
+        while (_levels.Count > MaxBars) _levels.Dequeue();
         InvalidateVisual();
     }
 
     protected override void OnRender(DrawingContext dc)
     {
         var levels = _levels.ToArray();
-        for (int i = 0; i < Bars; i++)
+        int bars = Math.Clamp((int)(ActualWidth / 7), 1, MaxBars); // short dashes across the full width
+        double step = ActualWidth / bars;
+        for (int i = 0; i < bars; i++)
         {
-            int j = i - (Bars - levels.Length); // right-aligned: the newest level is the last bar
+            int j = i - (bars - levels.Length); // right-aligned: the newest level is the last bar
             double v = j >= 0 ? levels[j] : -1;
             bool known = v >= 0;
             // Speech peaks are small; a square-root curve keeps quiet talking visible.
             double h = known ? Math.Clamp(Math.Sqrt(v) * Height, 1.5, Height) : 1.5;
             var brush = BarBrush.Clone();
             brush.Opacity = known && v > 0.01 ? 1 : 0.35;
-            dc.DrawRoundedRectangle(brush, null, new Rect(i * 3, Height - h, 2, h), 0.8, 0.8);
+            dc.DrawRoundedRectangle(brush, null, new Rect(i * step, (Height - h) / 2, Math.Max(2, step - 2), h), 1, 1);
         }
     }
 }

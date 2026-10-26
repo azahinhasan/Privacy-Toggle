@@ -306,17 +306,17 @@ public partial class ActivityView
         if (a.Lanes.Contains(Lane.Microphone))
         {
             if (a.MicLive is { } m) LiveChip(Lane.Microphone, m);
-            else chips.Children.Add(ResourceChip(Lane.Microphone, "Mic " + ActivityModel.Short(a.Mic)).Chip);
+            else chips.Children.Add(Tip(ResourceChip(Lane.Microphone, ActivityModel.Short(a.Mic)).Chip, "Microphone time in this range"));
         }
         if (a.Lanes.Contains(Lane.Camera))
         {
             if (a.CamLive is { } c) LiveChip(Lane.Camera, c);
-            else chips.Children.Add(ResourceChip(Lane.Camera, "Cam " + ActivityModel.Short(a.Camera)).Chip);
+            else chips.Children.Add(Tip(ResourceChip(Lane.Camera, ActivityModel.Short(a.Camera)).Chip, "Camera time in this range"));
         }
         if (a.Lanes.Contains(Lane.Network))
         {
             if (a.NetLive is { } n) LiveChip(Lane.Network, n);
-            else chips.Children.Add(ResourceChip(Lane.Network, Bytes(a.Bytes)).Chip);
+            else chips.Children.Add(Tip(ResourceChip(Lane.Network, Bytes(a.Bytes)).Chip, $"Data in this range: ↓ {Bytes(a.Received)} · ↑ {Bytes(a.Sent)}"));
         }
         text.Children.Add(chips);
         Grid.SetColumn(text, 1);
@@ -335,9 +335,15 @@ public partial class ActivityView
         };
         var label = ResourceCard.Tabular(new TextBlock { Text = text, FontSize = 11, FontWeight = FontWeights.Bold });
         label.SetResourceReference(TextBlock.ForegroundProperty, ink);
-        var chip = new Border { CornerRadius = new CornerRadius(999), Padding = new Thickness(7, 1, 8, 2), Margin = new Thickness(0, 0, 5, 3), Child = label };
+        var chip = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 1, 6, 2), Margin = new Thickness(0, 0, 5, 3), Child = label };
         chip.SetResourceReference(Border.BackgroundProperty, fill);
         return (chip, label);
+    }
+
+    private static Border Tip(Border chip, string tip)
+    {
+        chip.ToolTip = tip;
+        return chip;
     }
 
     /// <summary>Pulsing dots at the right edge of each live lane, over the track.</summary>
