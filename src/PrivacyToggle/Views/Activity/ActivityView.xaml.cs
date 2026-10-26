@@ -85,7 +85,8 @@ public partial class ActivityView : UserControl
         StopMeters();
     }
 
-    private bool Active => _app != null && IsVisible;
+    /// <summary>Showing and not minimized (a minimized window still counts as visible to WPF).</summary>
+    private bool Active => _app != null && IsVisible && Window.GetWindow(this)?.WindowState != WindowState.Minimized;
 
     private void OnUsageChanged()
     {

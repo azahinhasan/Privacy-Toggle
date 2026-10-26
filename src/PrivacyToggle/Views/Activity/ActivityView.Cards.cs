@@ -13,7 +13,8 @@ public partial class ActivityView
     /// <summary>An app counts as using the network now above this rate (bytes/s); idle keep-alives stay below it.</summary>
     public const double NetworkActiveRate = 1024;
 
-    private const double MinCardWidth = 270, CardGap = 12;
+    // The design asks for 270px; 240 still fits every card's content and keeps three across on the default 1080px window.
+    private const double MinCardWidth = 240, CardGap = 12;
 
     private ResourceCard _micCard = null!, _camCard = null!, _netCard = null!;
 
@@ -46,7 +47,7 @@ public partial class ActivityView
         Cards.Children.Add(_netCard);
     }
 
-    /// <summary>Three columns on a wide window, fewer when narrow; every card at least 270px wide.</summary>
+    /// <summary>Three columns on a wide window, fewer when narrow; every card at least <see cref="MinCardWidth"/> wide.</summary>
     private void LayoutCards()
     {
         double width = Cards.ActualWidth;
@@ -145,7 +146,7 @@ public partial class ActivityView
         {
             CameraState.Unavailable => "Not installed",
             CameraState.NoDevice => "No camera",
-            CameraState.Off => "Turn on camera",
+            CameraState.Off => "Turn on",
             _ => n > 0 ? "Turn off" : "Block camera",
         };
         _camCard.SetFooter(Duration(total), $"· {apps} app{(apps == 1 ? "" : "s")}", action, usable);

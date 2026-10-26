@@ -25,7 +25,7 @@ public sealed class ResourceCard : Border
     private readonly Button _more;
     private readonly TextBlock _idle = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 2), FontSize = 13 };
     private readonly TextBlock _total = new() { FontSize = 18, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Bottom };
-    private readonly TextBlock _apps = new() { FontSize = 12, Margin = new Thickness(6, 0, 0, 2), VerticalAlignment = VerticalAlignment.Bottom };
+    private readonly TextBlock _apps = new() { FontSize = 12, Margin = new Thickness(6, 0, 0, 2), VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly Button _action;
     private List<FrameworkElement> _allRows = new();
 
@@ -78,7 +78,7 @@ public sealed class ResourceCard : Border
         divider.SetResourceReference(BackgroundProperty, "SectionDivider");
         panel.Children.Add(divider);
 
-        var footer = new DockPanel { LastChildFill = false };
+        var footer = new DockPanel(); // the button keeps its size; the totals take the rest and trim if they must
         _action = new Button { Style = (Style)Application.Current.FindResource("SubtleButton"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 2, 2) };
         _action.Click += (_, _) => ActionClicked?.Invoke();
         DockPanel.SetDock(_action, Dock.Right);
@@ -87,8 +87,9 @@ public sealed class ResourceCard : Border
         var todayLabel = new TextBlock { Text = "Today", FontSize = 11, FontWeight = FontWeights.SemiBold };
         todayLabel.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
         today.Children.Add(todayLabel);
-        var totals = new StackPanel { Orientation = Orientation.Horizontal };
+        var totals = new DockPanel();
         Tabular(_total);
+        DockPanel.SetDock(_total, Dock.Left);
         totals.Children.Add(_total);
         _apps.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
         totals.Children.Add(_apps);
