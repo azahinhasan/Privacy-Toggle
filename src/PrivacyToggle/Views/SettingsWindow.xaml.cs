@@ -43,24 +43,27 @@ public partial class SettingsWindow : Window
         NetRecorder.HotkeyRecorded += h => OnHotkeyRecorded(h, PrivacyDevice.Network);
         NetRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
 
-        ActivityPage.Attach(_app.Usage);
+        ActivityPage.Attach(_app);
+        ActivityPage.NetworkDetailsRequested += () => ShowPage(PrivacyDevice.Network);
         _ = CheckForUpdatesAsync(); // quietly, so the About item can show "NEW"
 
         _app.StateChanged += RefreshStatus;
+        _app.Usage.Changed += RefreshSidebar;
+        _app.NetworkUsage.Changed += RefreshSidebar;
         _app.DevicesChanged += RefreshDevices;
         _app.CameraDevicesChanged += RefreshCameras;
         _app.NetworkAdaptersChanged += RefreshNetwork;
-        _app.NetworkUsage.Changed += RefreshNetworkUsage;
         ThemeService.Changed += OnThemeChanged;
         SourceInitialized += (_, _) => ThemeService.ApplyTitleBar(this);
         Closed += (_, _) =>
         {
             ActivityPage.Detach();
             _app.StateChanged -= RefreshStatus;
+            _app.Usage.Changed -= RefreshSidebar;
+            _app.NetworkUsage.Changed -= RefreshSidebar;
             _app.DevicesChanged -= RefreshDevices;
             _app.CameraDevicesChanged -= RefreshCameras;
             _app.NetworkAdaptersChanged -= RefreshNetwork;
-            _app.NetworkUsage.Changed -= RefreshNetworkUsage;
             ThemeService.Changed -= OnThemeChanged;
         };
     }
@@ -208,14 +211,49 @@ public partial class SettingsWindow : Window
 
     // ---------------- status ----------------
 
+    /// <summary>
+    /// The sidebar status box with live counts: "Mic live · 2" / "Mic off", "Camera live · 1" / "Camera off",
+    /// "Network · 7 apps" / "Network quiet". Runs on every usage change (the network one ticks every second).
+    /// </summary>
+    private void RefreshSidebar()
+    {
+        var live = ActivityModel.LiveNow(_app.Usage.Sessions, _app.Usage.Blocked, DateTime.Now);
+        int micApps = live.Count(l => l.Spans.Any(s => s.Device == UsageDevice.Microphone));
+        int camApps = live.Count(l => l.Spans.Any(s => s.Device == UsageDevice.Camera));
+        int netApps = _app.NetworkUsage.Live.Count(l => l.DownRate + l.UpRate > ActivityView.NetworkActiveRate);
+
+        void Set(System.Windows.Shapes.Ellipse dot, TextBlock chip, string text, string color)
+        {
+            chip.Text = text;
+            dot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, color);
+        }
+
+        switch (_app.Mic.State)
+        {
+            case MicState.Muted: Set(MicDot, MicChip, "Mic off", "StatusOff"); break;
+            case MicState.NoDevice: Set(MicDot, MicChip, "No microphone", "NoneColor"); break;
+            default: Set(MicDot, MicChip, micApps > 0 ? $"Mic live · {micApps}" : "Mic on", "StatusOn"); break;
+        }
+        switch (_app.Camera.State)
+        {
+            case CameraState.Off: Set(CamDot, CamChip, "Camera off", "StatusOff"); break;
+            case CameraState.On: Set(CamDot, CamChip, camApps > 0 ? $"Camera live · {camApps}" : "Camera on", "StatusOn"); break;
+            case CameraState.NoDevice: Set(CamDot, CamChip, "No camera", "NoneColor"); break;
+            default: Set(CamDot, CamChip, "Camera control not installed", "NoneColor"); break;
+        }
+        if (_app.Network.State == NetworkState.Off) Set(NetDot, NetChip, "Network off", "StatusOff");
+        else if (netApps > 0) Set(NetDot, NetChip, $"Network · {netApps} app{(netApps == 1 ? "" : "s")}", "NetUsage");
+        else Set(NetDot, NetChip, "Network quiet", "NetUsage");
+    }
+
     private void RefreshStatus()
     {
+        RefreshSidebar();
+
         // microphone
         var mic = _app.Mic.State;
         string micColor = mic switch { MicState.Muted => "MutedColor", MicState.Live => "LiveColor", _ => "NoneColor" };
-        MicDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, micColor);
         MicStateBadge.SetResourceReference(Border.BackgroundProperty, micColor.Replace("Color", "Fill"));
-        MicChip.Text = mic switch { MicState.Muted => "Mic muted", MicState.Live => "Mic live", _ => "No microphone" };
         MicCardIcon.Source = Image(mic switch { MicState.Muted => "mic-off.ico", MicState.Live => "mic-on.ico", _ => "mic-none.ico" });
         MicCardState.Text = mic switch { MicState.Muted => "Muted", MicState.Live => "Live", _ => "Not found" };
         MicCardHint.Text = mic == MicState.NoDevice
@@ -230,15 +268,7 @@ public partial class SettingsWindow : Window
         var camService = _app.Camera;
         var cam = camService.State;
         string camColor = cam switch { CameraState.Off => "MutedColor", CameraState.On => "LiveColor", _ => "NoneColor" };
-        CamDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, camColor);
         CamStateBadge.SetResourceReference(Border.BackgroundProperty, camColor.Replace("Color", "Fill"));
-        CamChip.Text = cam switch
-        {
-            CameraState.Off => "Camera off",
-            CameraState.On => "Camera on",
-            CameraState.NoDevice => "No camera",
-            _ => "Camera control not installed",
-        };
         CamCardIcon.Source = Image(cam switch { CameraState.Off => "cam-off.ico", CameraState.On => "cam-on.ico", _ => "cam-none.ico" });
         CamCardState.Text = camService.Busy ? (camService.DesiredOff ? "Turning off…" : "Turning on…") : cam switch
         {
@@ -269,15 +299,7 @@ public partial class SettingsWindow : Window
         var netService = _app.Network;
         var net = netService.State;
         string netColor = net switch { NetworkState.Off => "MutedColor", NetworkState.On => "LiveColor", _ => "NoneColor" };
-        NetDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, netColor);
         NetStateBadge.SetResourceReference(Border.BackgroundProperty, netColor.Replace("Color", "Fill"));
-        NetChip.Text = net switch
-        {
-            NetworkState.Off => "Network off",
-            NetworkState.On => "Network on",
-            NetworkState.NoDevice => "No network adapter",
-            _ => "Network control unavailable",
-        };
         NetCardIcon.Source = Image(net switch { NetworkState.Off => "net-off.ico", NetworkState.On => "net-on.ico", _ => "net-none.ico" });
         NetCardState.Text = netService.Busy ? (netService.DesiredOff ? "Disconnecting…" : "Reconnecting…") : net switch
         {
@@ -405,7 +427,6 @@ public partial class SettingsWindow : Window
         foreach (var (nav, page) in pages)
             page.Visibility = nav.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         ActivityPage.SetActive(NavActivity.IsChecked == true);
-        if (NavNetwork.IsChecked == true) RefreshNetworkUsage();
         if (NavAbout.IsChecked == true && !_updateBusy && DateTime.Now - UpdateService.LastChecked > TimeSpan.FromMinutes(10))
             _ = CheckForUpdatesAsync();
     }
@@ -486,36 +507,6 @@ public partial class SettingsWindow : Window
 
     // ---------------- network ----------------
 
-    /// <summary>Fills "Using the network now" and "Data usage". Only while the Network page is showing (every 2 s).</summary>
-    private void RefreshNetworkUsage()
-    {
-        if (NavNetwork.IsChecked != true) return;
-        var usage = _app.NetworkUsage;
-
-        NetUsageProblem.Text = usage.Problem ?? "";
-        NetUsageProblem.Visibility = usage.Available ? Visibility.Collapsed : Visibility.Visible;
-
-        NetLiveList.Items.Clear();
-        foreach (var live in usage.Live.Take(10))
-            NetLiveList.Items.Add(UsageRow(AppIdentity.For(live.AppKey), null,
-                $"↓ {Rate(live.DownRate)}   ↑ {Rate(live.UpRate)}", null, null));
-        NetLiveEmpty.Visibility = usage.Available && usage.Live.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-
-        int days = NetRange30d.IsChecked == true ? 30 : NetRange7d.IsChecked == true ? 7 : 1;
-        var totals = usage.Totals(days);
-        long max = totals.Count > 0 ? totals[0].Traffic.Total : 0;
-        NetUsageList.Items.Clear();
-        foreach (var (key, t) in totals.Take(25))
-            NetUsageList.Items.Add(UsageRow(AppIdentity.For(key), $"active {Duration(t.ActiveSeconds)}",
-                Bytes(t.Total), $"↓ {Bytes(t.Received)} · ↑ {Bytes(t.Sent)}", max > 0 ? (double)t.Total / max : 0));
-        NetUsageEmpty.Visibility = totals.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        long all = totals.Sum(t => t.Traffic.Total);
-        string range = days == 1 ? "today" : $"in the last {days} days";
-        NetUsageFooter.Text = totals.Count == 0 ? ""
-            : $"{Bytes(all)} {range} (↓ {Bytes(totals.Sum(t => t.Traffic.Received))} · ↑ {Bytes(totals.Sum(t => t.Traffic.Sent))})" +
-              (totals.Count > 25 ? $", {totals.Count - 25} more apps not shown." : ".");
-    }
-
     private void TaskbarSpeed_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -525,75 +516,6 @@ public partial class SettingsWindow : Window
             : TaskbarSpeedShow.Both);
         UpdateDependentControls();
     }
-
-    private void NetRange_Checked(object sender, RoutedEventArgs e)
-    {
-        if (NetUsageList != null) RefreshNetworkUsage();
-    }
-
-    /// <summary>One app line: icon, name and detail on the left; a value (and a smaller one under it) on the right; an optional share bar.</summary>
-    private FrameworkElement UsageRow(AppIdentity app, string? detail, string value, string? valueDetail, double? share)
-    {
-        var grid = new Grid { Margin = new Thickness(0, 7, 0, 7) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        FrameworkElement icon = app.Icon != null
-            ? new System.Windows.Controls.Image { Source = app.Icon, Width = 24, Height = 24 }
-            : new Border
-            {
-                Width = 24, Height = 24, CornerRadius = new CornerRadius(5),
-                Child = new TextBlock { Text = app.Name.Length > 0 ? app.Name[..1].ToUpperInvariant() : "?", FontWeight = FontWeights.Bold,
-                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.Black },
-            };
-        if (icon is Border placeholder) placeholder.SetResourceReference(Border.BackgroundProperty, "NoneFill");
-        icon.VerticalAlignment = VerticalAlignment.Top;
-        icon.Margin = new Thickness(0, 2, 0, 0);
-        grid.Children.Add(icon);
-
-        var text = new StackPanel { Margin = new Thickness(10, 0, 12, 0) };
-        text.Children.Add(new TextBlock { Text = app.Name, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = app.Detail });
-        if (detail != null) text.Children.Add(new TextBlock { Text = detail, Style = (Style)FindResource("Hint") });
-        if (share is double s)
-        {
-            // Two proportional columns, so the bar keeps its share of the width as the window resizes.
-            var track = new Grid { Height = 5, Margin = new Thickness(0, 5, 0, 0) };
-            track.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(s, 0.005), GridUnitType.Star) });
-            track.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - s, 0), GridUnitType.Star) });
-            var bar = new Border { CornerRadius = new CornerRadius(2) };
-            bar.SetResourceReference(Border.BackgroundProperty, "Accent");
-            track.Children.Add(bar);
-            text.Children.Add(track);
-        }
-        Grid.SetColumn(text, 1);
-        grid.Children.Add(text);
-
-        var right = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        right.Children.Add(new TextBlock { Text = value, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right });
-        if (valueDetail != null)
-            right.Children.Add(new TextBlock { Text = valueDetail, Style = (Style)FindResource("Hint"), HorizontalAlignment = HorizontalAlignment.Right });
-        Grid.SetColumn(right, 2);
-        grid.Children.Add(right);
-        return grid;
-    }
-
-    private static string Bytes(long bytes) => bytes switch
-    {
-        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.##} GB",
-        >= 1L << 20 => $"{bytes / (double)(1L << 20):0.#} MB",
-        >= 1L << 10 => $"{bytes / 1024.0:0} KB",
-        _ => $"{bytes} B",
-    };
-
-    private static string Rate(double bytesPerSecond) => Bytes((long)bytesPerSecond) + "/s";
-
-    private static string Duration(int seconds) => seconds switch
-    {
-        < 60 => $"{seconds} s",
-        < 3600 => $"{seconds / 60} min",
-        _ => $"{seconds / 3600} h {seconds % 3600 / 60} min",
-    };
 
     private void NetOnStart_Changed(object sender, RoutedEventArgs e)
     {

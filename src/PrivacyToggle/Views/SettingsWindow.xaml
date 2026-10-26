@@ -461,35 +461,6 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="Using the network now" />
-                    <Border Style="{StaticResource Card}" Padding="16,6">
-                        <StackPanel>
-                            <ItemsControl x:Name="NetLiveList" />
-                            <StackPanel x:Name="NetLiveEmpty" Orientation="Horizontal" Margin="0,8">
-                                <Ellipse Width="11" Height="11" Fill="{DynamicResource NoneFill}" Stroke="{DynamicResource Ink}" StrokeThickness="2" VerticalAlignment="Center" />
-                                <TextBlock Style="{StaticResource Hint}" Margin="10,0,0,0" FontSize="13" Text="No app is sending or receiving data right now." />
-                            </StackPanel>
-                            <TextBlock x:Name="NetUsageProblem" Margin="0,8" TextWrapping="Wrap" Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- right margin leaves room for the last button's shadow -->
-                    <DockPanel Margin="0,0,6,0">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
-                            <RadioButton x:Name="NetRangeToday" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="Today" IsChecked="True" Checked="NetRange_Checked" />
-                            <RadioButton x:Name="NetRange7d" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="7 days" Checked="NetRange_Checked" />
-                            <RadioButton x:Name="NetRange30d" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="30 days" Margin="0" Checked="NetRange_Checked" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="Data usage" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <Border Style="{StaticResource Card}" Padding="16,6">
-                        <StackPanel>
-                            <ItemsControl x:Name="NetUsageList" />
-                            <TextBlock x:Name="NetUsageEmpty" Style="{StaticResource Hint}" Margin="0,8" FontSize="13" Text="No network use recorded yet." />
-                            <TextBlock x:Name="NetUsageFooter" Style="{StaticResource Hint}" Margin="0,4,0,8" />
-                        </StackPanel>
-                    </Border>
-
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Shortcut" />
                     <Border Style="{StaticResource Card}" Padding="16,14">
                         <StackPanel>

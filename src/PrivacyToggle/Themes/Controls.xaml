@@ -380,6 +380,38 @@
     </Style>
 
     <!-- Text button that reads like a bold link -->
+    <!--
+        Dashed outline button in its Foreground colour ("Show 7 more apps" on the Activity cards).
+        A real button: keyboard focus, Enter/Space, and screen readers all work.
+    -->
+    <Style x:Key="DashedButton" TargetType="Button">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent">
+                        <Rectangle x:Name="Hover" RadiusX="8" RadiusY="8" Fill="{TemplateBinding Foreground}" Opacity="0" />
+                        <Rectangle RadiusX="8" RadiusY="8" StrokeThickness="1.5" StrokeDashArray="4 3" Stroke="{TemplateBinding Foreground}" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Hover" Property="Opacity" Value="0.12" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Hover" Property="Opacity" Value="0.22" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="LinkButton" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="Bold" />

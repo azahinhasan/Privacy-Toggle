@@ -7,119 +7,84 @@
     </UserControl.Resources>
     <StackPanel>
         <!-- ============ Header ============ -->
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Style="{StaticResource PageTitle}" Text="Activity" Margin="0" />
-            <Border Margin="10,4,0,0" Padding="6,1,6,2" CornerRadius="5" VerticalAlignment="Center"
-                    BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="#C9B6FF">
-                <TextBlock Text="BETA" FontSize="11" FontWeight="Black" Foreground="#111111" />
-            </Border>
-            <Border x:Name="InfoIcon" Width="20" Height="20" CornerRadius="10" Margin="10,4,0,0" VerticalAlignment="Center"
-                    BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="{DynamicResource Accent}" Cursor="Help"
-                    ToolTipService.InitialShowDelay="100" ToolTipService.ShowDuration="30000">
-                <TextBlock Text="i" FontSize="11" FontWeight="Black" Foreground="{DynamicResource AccentText}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
-                <Border.ToolTip>
-                    <ToolTip MaxWidth="340">
-                        <TextBlock TextWrapping="Wrap"
-                                   Text="PrivacyToggle combines Windows' usage records with what it sees directly: apps recording from a microphone, and apps connecting to the camera. It keeps the full history (7 days) while it runs. Windows doesn't say when one app stops using the camera, so a camera session ends when the app closes or the camera goes idle. Time while the device is muted or off isn't counted. Everything stays on this PC." />
-                    </ToolTip>
-                </Border.ToolTip>
-            </Border>
-        </StackPanel>
-        <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,18"
-                   Text="Which apps use your microphone and camera." />
-
-        <!-- ============ Summary tiles ============ -->
-        <!-- No negative right margin: the last tile keeps its 6px so its hard shadow isn't clipped by the ScrollViewer. -->
-        <UniformGrid x:Name="Tiles" Columns="4" Margin="-6,0,0,2">
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <ContentControl x:Name="MicTileGlyph" Focusable="False" />
-                        <TextBlock Style="{StaticResource Hint}" Text="Mic time today" Margin="6,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBlock x:Name="MicToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <ContentControl x:Name="CamTileGlyph" Focusable="False" />
-                        <TextBlock Style="{StaticResource Hint}" Text="Camera time today" Margin="6,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBlock x:Name="CamToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource Hint}" Text="Apps used today" />
-                    <TextBlock x:Name="AppsToday" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource Card}" Padding="14,12" Margin="6,0,6,12">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource Hint}" Text="Last access" />
-                    <TextBlock x:Name="LastApp" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock x:Name="LastWhen" Style="{StaticResource Hint}" Margin="0,1,0,0" />
-                </StackPanel>
-            </Border>
-        </UniformGrid>
-
-        <!-- ============ In use now ============ -->
-        <DockPanel Margin="2,4,0,8">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Style="{StaticResource LinkButton}" Click="MicPrivacy_Click" ToolTip="Windows Settings → Privacy → Microphone">
-                    <StackPanel Orientation="Horizontal">
-                        <ContentControl x:Name="MicLinkGlyph" Focusable="False" />
-                        <TextBlock Text="Microphone privacy" Margin="5,0,0,0" />
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource LinkButton}" Click="CamPrivacy_Click" Margin="6,0,0,0" ToolTip="Windows Settings → Privacy → Camera">
-                    <StackPanel Orientation="Horizontal">
-                        <ContentControl x:Name="CamLinkGlyph" Focusable="False" />
-                        <TextBlock Text="Camera privacy" Margin="5,0,0,0" />
-                    </StackPanel>
+        <DockPanel Margin="0,0,6,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
+                <Button x:Name="ExportButton" Style="{StaticResource SubtleButton}" Content="Export" Click="Export_Click"
+                        ToolTip="Save the history of the selected range as a CSV file" />
+                <Button x:Name="PrivacyButton" Style="{StaticResource SubtleButton}" Content="Privacy settings" Margin="10,0,0,0"
+                        Click="Privacy_Click" ToolTip="Windows privacy settings for the microphone, camera and network">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Microphone privacy" Click="MicPrivacy_Click" />
+                            <MenuItem Header="Camera privacy" Click="CamPrivacy_Click" />
+                            <MenuItem Header="Network and firewall" Click="NetPrivacy_Click" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
                 </Button>
             </StackPanel>
-            <TextBlock Style="{StaticResource SectionTitle}" Text="In use now" Margin="0" VerticalAlignment="Center" />
-        </DockPanel>
-        <Border Style="{StaticResource Card}" Padding="16,6">
             <StackPanel>
-                <ItemsControl x:Name="LiveList" />
-                <StackPanel x:Name="LiveEmpty" Orientation="Horizontal" Margin="0,8">
-                    <Ellipse Width="11" Height="11" Fill="{DynamicResource NoneFill}" Stroke="{DynamicResource Ink}" StrokeThickness="2" VerticalAlignment="Center" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="10,0,0,0" FontSize="13"
-                               Text="Nothing is using your microphone or camera right now." />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Activity" FontSize="30" Margin="0" />
+                    <Border Margin="10,4,0,0" Padding="6,1,6,2" CornerRadius="5" VerticalAlignment="Center"
+                            BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="#C9B6FF">
+                        <TextBlock Text="BETA" FontSize="11" FontWeight="Black" Foreground="#2B1D4F" />
+                    </Border>
+                    <Border x:Name="InfoIcon" Width="20" Height="20" CornerRadius="10" Margin="10,4,0,0" VerticalAlignment="Center"
+                            BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="{DynamicResource Accent}" Cursor="Help"
+                            ToolTipService.InitialShowDelay="100" ToolTipService.ShowDuration="30000">
+                        <TextBlock Text="i" FontSize="11" FontWeight="Black" Foreground="{DynamicResource AccentText}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
+                        <Border.ToolTip>
+                            <ToolTip MaxWidth="360">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="PrivacyToggle combines Windows' usage records with what it sees directly: apps recording from a microphone, apps connecting to the camera, and the bytes each app sends and receives over the network (counted by the helper service). It keeps 7 days of history while it runs. Time while a device is muted or off isn't counted. Everything stays on this PC." />
+                            </ToolTip>
+                        </Border.ToolTip>
+                    </Border>
                 </StackPanel>
-                <TextBlock x:Name="BlockedNote" Style="{StaticResource Hint}" Margin="18,0,0,8" Visibility="Collapsed" />
+                <TextBlock Style="{StaticResource Hint}" FontSize="13" Margin="0,4,0,0"
+                           Text="What's using your microphone, camera and network — right now and over time." />
             </StackPanel>
-        </Border>
+        </DockPanel>
 
-        <!-- ============ Toolbar ============ -->
-        <!-- Right margin like the cards': room for the List button's and dropdown's shadows, which the ScrollViewer would clip. -->
-        <Grid Margin="0,6,6,10">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
+        <!-- ============ Right now ============ -->
+        <DockPanel Margin="0,22,6,10">
+            <TextBlock x:Name="NowSummary" DockPanel.Dock="Right" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
             <StackPanel Orientation="Horizontal">
-                <RadioButton x:Name="Range1h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="1h" Checked="Range_Checked" />
-                <RadioButton x:Name="Range6h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="6h" Checked="Range_Checked" />
-                <RadioButton x:Name="Range24h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="24h" Checked="Range_Checked" />
-                <RadioButton x:Name="Range7d" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="7d" Checked="Range_Checked" />
+                <Ellipse x:Name="NowDot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource StatusOn}" />
+                <TextBlock Text="Right now" FontSize="16" FontWeight="ExtraBold" Margin="8,0,0,1" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+        </DockPanel>
+        <!-- Cards wrap on narrow windows (min 270px each) and align to the top. -->
+        <WrapPanel x:Name="Cards" />
+        <!-- Announces (once) when a new app starts using the camera or microphone. -->
+        <TextBlock x:Name="LiveAnnouncer" Height="0" Focusable="False" />
+
+        <!-- ============ History ============ -->
+        <DockPanel Margin="0,10,6,10">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <RadioButton x:Name="ViewTimeline" Style="{StaticResource SegmentSmall}" GroupName="ActView" Content="Timeline" IsChecked="True" Checked="View_Checked" />
                 <RadioButton x:Name="ViewList" Style="{StaticResource SegmentSmall}" GroupName="ActView" Content="List" Margin="0" Checked="View_Checked" />
             </StackPanel>
-
-            <!-- filter chips double as the legend -->
-            <WrapPanel Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Center">
+            <TextBlock Text="History" FontSize="16" FontWeight="ExtraBold" VerticalAlignment="Center" />
+        </DockPanel>
+        <DockPanel Margin="0,0,6,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource Hint}" Text="Sort" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox x:Name="SortBox" Style="{StaticResource Dropdown}" SelectedIndex="0" SelectionChanged="Sort_Changed">
+                    <ComboBoxItem Content="Live first, then recent" />
+                    <ComboBoxItem Content="Most data" />
+                    <ComboBoxItem Content="Longest mic time" />
+                    <ComboBoxItem Content="Name" />
+                </ComboBox>
+            </StackPanel>
+            <WrapPanel VerticalAlignment="Center">
+                <RadioButton x:Name="Range1h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="1h" Checked="Range_Checked" Margin="0,0,6,6" />
+                <RadioButton x:Name="Range6h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="6h" Checked="Range_Checked" Margin="0,0,6,6" />
+                <RadioButton x:Name="Range24h" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="24h" Checked="Range_Checked" Margin="0,0,6,6" />
+                <RadioButton x:Name="Range7d" Style="{StaticResource SegmentSmall}" GroupName="ActRange" Content="7d" Checked="Range_Checked" Margin="0,0,6,6" />
+                <Border Width="2" Height="22" Margin="6,0,12,6" VerticalAlignment="Center" Background="{DynamicResource SectionDivider}" />
                 <RadioButton x:Name="FilterAll" Style="{StaticResource Chip}" GroupName="ActFilter" Content="All" IsChecked="True" Checked="Filter_Checked" />
                 <RadioButton x:Name="FilterMic" Style="{StaticResource Chip}" GroupName="ActFilter" Checked="Filter_Checked">
                     <StackPanel Orientation="Horizontal">
@@ -133,46 +98,54 @@
                         <TextBlock Text="Camera" Margin="5,0,0,0" />
                     </StackPanel>
                 </RadioButton>
+                <RadioButton x:Name="FilterNet" Style="{StaticResource Chip}" GroupName="ActFilter" Checked="Filter_Checked">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl x:Name="NetChipGlyph" Focusable="False" />
+                        <TextBlock Text="Network" Margin="5,0,0,0" />
+                    </StackPanel>
+                </RadioButton>
             </WrapPanel>
-            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource Hint}" Text="Sort" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox x:Name="SortBox" Style="{StaticResource Dropdown}" SelectedIndex="0" SelectionChanged="Sort_Changed">
-                    <ComboBoxItem Content="Most recent" />
-                    <ComboBoxItem Content="Most used" />
-                    <ComboBoxItem Content="Name" />
-                </ComboBox>
-            </StackPanel>
-        </Grid>
+        </DockPanel>
 
         <!-- ============ Timeline / list ============ -->
-        <Border Style="{StaticResource Card}" Padding="8,10,12,10">
-            <Grid x:Name="ContentHost">
-                <!-- timeline -->
-                <Grid x:Name="TimelineHost">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="240" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <v:TimeAxis x:Name="Axis" Grid.Column="1" Margin="2,0,2,6" />
-                    <v:TimeGrid x:Name="Gridlines" Grid.Row="1" Grid.Column="1" Margin="2,0,2,0" />
-                    <ItemsControl x:Name="Rows" Grid.Row="1" Grid.ColumnSpan="2" Focusable="False" />
-                    <v:TimeGrid x:Name="NowLine" Grid.Row="1" Grid.Column="1" NowLine="True" Margin="2,0,2,0" />
+        <!-- Scrolls sideways inside its box when the window is narrow; the mouse wheel still scrolls the page. -->
+        <Border CornerRadius="12" BorderThickness="2" BorderBrush="{DynamicResource Ink}" Background="{DynamicResource PanelBg}"
+                Effect="{DynamicResource HardShadowSmall}" Margin="0,0,6,10">
+            <ScrollViewer x:Name="HistoryScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="HistoryScroll_PreviewMouseWheel">
+                <Grid x:Name="ContentHost" MinWidth="760" Margin="12,12,12,10">
+                    <!-- timeline -->
+                    <Grid x:Name="TimelineHost">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="230" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel x:Name="Legend" Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,0,6" />
+                        <v:HistoryAxis x:Name="Axis" Grid.Column="1" Margin="0,0,0,6" />
+                        <v:HistoryBackdrop x:Name="Backdrop" Grid.Row="1" Grid.Column="1" />
+                        <ItemsControl x:Name="Rows" Grid.Row="1" Grid.ColumnSpan="2" Focusable="False" />
+                    </Grid>
+
+                    <!-- list: one row per session -->
+                    <StackPanel x:Name="ListHost" Visibility="Collapsed">
+                        <Grid x:Name="ListHeader" Margin="0,0,0,6" />
+                        <ItemsControl x:Name="ListRows" Focusable="False" />
+                    </StackPanel>
+
+                    <!-- empty -->
+                    <StackPanel x:Name="EmptyState" Visibility="Collapsed" Margin="0,26" HorizontalAlignment="Center">
+                        <TextBlock x:Name="EmptyText" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                        <Button x:Name="EmptyButton" Style="{StaticResource SubtleButton}" Margin="0,12,0,0" HorizontalAlignment="Center"
+                                Click="EmptyButton_Click" />
+                    </StackPanel>
                 </Grid>
-
-                <!-- list -->
-                <ItemsControl x:Name="ListRows" Visibility="Collapsed" Focusable="False" />
-
-                <!-- empty -->
-                <StackPanel x:Name="EmptyState" Visibility="Collapsed" Margin="0,26" HorizontalAlignment="Center">
-                    <TextBlock x:Name="EmptyText" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                    <Button x:Name="EmptyButton" Style="{StaticResource SubtleButton}" Margin="0,12,0,0" HorizontalAlignment="Center"
-                            Click="EmptyButton_Click" />
-                </StackPanel>
-            </Grid>
+            </ScrollViewer>
         </Border>
+        <Button x:Name="MoreRowsButton" Style="{StaticResource SubtleButton}" HorizontalAlignment="Center" Margin="0,4,0,16"
+                Visibility="Collapsed" Click="MoreRows_Click" />
     </StackPanel>
 </UserControl>
