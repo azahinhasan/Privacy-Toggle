@@ -34,6 +34,17 @@ public static class Program
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(NetworkAdapters.List(), CameraProtocol.Json));
             return 0;
         }
+        // Diagnostics: counts network use per app for 10 seconds and prints it (needs admin, like the helper).
+        if (Has("--network-usage"))
+        {
+            NetworkTraffic.Start();
+            if (NetworkTraffic.Error != null) { Console.WriteLine(NetworkTraffic.Error); return 1; }
+            Thread.Sleep(10_000);
+            foreach (var p in NetworkTraffic.Snapshot().OrderByDescending(p => p.Sent + p.Received).Take(15))
+                Console.WriteLine($"{p.Received / 1024,10:N0} KB down {p.Sent / 1024,10:N0} KB up  {p.Pid,6}  {p.App} {p.Services}");
+            NetworkTraffic.Stop();
+            return 0;
+        }
         // Diagnostics: whether an app is using a camera through Frame Server (needs admin, like the helper).
         if (Has("--camera-in-use"))
         {

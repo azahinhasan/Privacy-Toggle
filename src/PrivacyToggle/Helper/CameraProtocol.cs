@@ -25,6 +25,13 @@ public enum NetworkKind { WiFi, Ethernet, Mobile }
 /// </summary>
 public sealed record NetworkAdapter(string Id, string Name, string Alias, NetworkKind Kind, bool Enabled, bool Connected);
 
+/// <summary>
+/// One process's network totals since the helper started counting it. <see cref="Serial"/> is unique per
+/// process lifetime (a reused process id gets a new one). <see cref="App"/> is the exe path, or "System";
+/// <see cref="Services"/> names the Windows services hosted in a svchost process.
+/// </summary>
+public sealed record ProcessTraffic(long Serial, int Pid, string App, string? Services, long Sent, long Received);
+
 /// <summary>A program that held a camera open and refused to let Windows turn it off.</summary>
 public sealed class BlockerInfo
 {
@@ -40,6 +47,7 @@ public sealed class CameraRequest
     /// <summary>
     /// Cameras: "list", "set", "close-and-set" (close <see cref="CloseProcessId"/>, then set), or "in-use".
     /// Network adapters: "net-list" or "net-set" (<see cref="Ids"/> are adapter ids then).
+    /// Network use: "net-usage" (bytes sent/received per process).
     /// </summary>
     public string Command { get; set; } = "list";
     public bool Enable { get; set; }
@@ -70,4 +78,9 @@ public sealed class CameraResponse
     public bool? NetworkSupported { get; set; }
 
     public List<NetworkAdapter> Adapters { get; set; } = new();
+
+    /// <summary>For "net-usage": per-process network totals, the counting session they belong to, or why there are none.</summary>
+    public List<ProcessTraffic>? Traffic { get; set; }
+    public string? TrafficSession { get; set; }
+    public string? TrafficError { get; set; }
 }

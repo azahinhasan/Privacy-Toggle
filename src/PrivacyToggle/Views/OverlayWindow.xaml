@@ -50,5 +50,19 @@
                            Margin="7,0,0,1" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
+        <Border x:Name="NetBadge" Style="{StaticResource Badge}">
+            <StackPanel Orientation="Horizontal">
+                <Viewbox Width="17" Height="17" VerticalAlignment="Center">
+                    <Canvas Width="24" Height="24">
+                        <Path Stroke="#111111" StrokeThickness="2.3"
+                              Data="M3.5,12 a8.5,8.5 0 1 0 17,0 a8.5,8.5 0 1 0 -17,0 M8.5,12 a3.5,8.5 0 1 0 7,0 a3.5,8.5 0 1 0 -7,0 M3.5,12 h17" />
+                        <Path Stroke="#FF6B6B" StrokeThickness="5" Data="M4,4 L20,20" />
+                        <Path Stroke="#111111" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />
+                    </Canvas>
+                </Viewbox>
+                <TextBlock Text="NET OFF" Foreground="#111111" FontFamily="Segoe UI Black, Segoe UI" FontWeight="Black" FontSize="13"
+                           Margin="7,0,0,1" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
     </StackPanel>
 </Window>

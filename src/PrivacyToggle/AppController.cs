@@ -20,6 +20,7 @@ public sealed class AppController : IDisposable
     private TaskbarIcon? _micTray, _camTray, _netTray;
     private TrayMenu? _micMenu, _camMenu, _netMenu;
     private SettingsWindow? _settingsWindow;
+    private TaskbarSpeedWindow? _taskbarSpeed;
     private readonly Dictionary<OverlayCorner, OverlayWindow> _overlays = new(); // badge windows, one per corner in use
     private readonly Dictionary<OverlayCorner, NotifyBadgeWindow> _notifyBadges = new(); // short-lived switch badges, per corner
     private bool _hotkeySuspended;
@@ -29,6 +30,9 @@ public sealed class AppController : IDisposable
     public MicService Mic { get; private set; } = null!;
     public CameraService Camera { get; private set; } = null!;
     public NetworkService Network { get; private set; } = null!;
+
+    /// <summary>Which apps use the network and how much (Network page).</summary>
+    public NetworkUsageService NetworkUsage { get; private set; } = null!;
     public HotkeyService Hotkeys { get; private set; } = null!;
     public PushToTalkService PushToTalk { get; private set; } = null!;
     public SoundService Sounds { get; } = new();
@@ -103,6 +107,7 @@ public sealed class AppController : IDisposable
             _ => S.LastNetworkOff,
         });
 
+        NetworkUsage = new NetworkUsageService(_dispatcher, Settings.FolderPath);
         Usage = new UsageTracker(_dispatcher, Settings.FolderPath) { CameraInUse = Camera.InUseAsync };
         UpdateBlocked();
 
@@ -114,6 +119,7 @@ public sealed class AppController : IDisposable
 
         UpdateTrays();
         if (promoteTrayArg) PromoteTrayIcons();
+        UpdateTaskbarSpeed();
 
         Hotkeys = new HotkeyService();
         Hotkeys.Pressed += id =>
@@ -406,16 +412,21 @@ public sealed class AppController : IDisposable
     }
 
     /// <summary>
-    /// Pops up a short-lived badge for a switch, in the device's chosen corner. If a MIC OFF / CAM OFF
+    /// Pops up a short-lived badge for a switch, in the device's chosen corner. If a MIC OFF / CAM OFF / NET OFF
     /// badge already sits in that corner, it appears just beside it (below at the top, above at the bottom).
     /// </summary>
-    private void FlashBadge(bool camera, (bool? Off, string Text) state)
+    private void FlashBadge(PrivacyDevice device, (bool? Off, string Text) state)
     {
-        var corner = camera ? S.CamNotifyCorner : S.MicNotifyCorner;
+        var corner = device switch
+        {
+            PrivacyDevice.Camera => S.CamNotifyCorner,
+            PrivacyDevice.Network => S.NetNotifyCorner,
+            _ => S.MicNotifyCorner,
+        };
         double offset = _overlays.TryGetValue(corner, out var overlay) && overlay.IsVisible ? overlay.ActualHeight : 0;
         if (!_notifyBadges.TryGetValue(corner, out var badge))
             _notifyBadges[corner] = badge = new NotifyBadgeWindow();
-        badge.Flash(camera, state.Off, state.Text, corner, offset);
+        badge.Flash(device, state.Off, state.Text, corner, offset);
     }
 
     // ---------------- mic actions ----------------
@@ -441,7 +452,7 @@ public sealed class AppController : IDisposable
         if (notify && S.MicNotify)
         {
             if (S.MicNotifyStyle == NotifyStyle.Badge)
-                FlashBadge(camera: false, Mic.State switch
+                FlashBadge(PrivacyDevice.Microphone, Mic.State switch
                 {
                     MicState.NoDevice => (null, "NO MIC"),
                     MicState.Muted => (true, "MIC OFF"),
@@ -523,7 +534,7 @@ public sealed class AppController : IDisposable
         else if (Camera.NeedsRestart)
             Notify("Camera", "Windows needs a restart to finish switching the camera.");
         else if (S.CamNotify && S.CamNotifyStyle == NotifyStyle.Badge)
-            FlashBadge(camera: true, Camera.State switch
+            FlashBadge(PrivacyDevice.Camera, Camera.State switch
             {
                 CameraState.NoDevice => (null, "NO CAMERA"),
                 CameraState.Off => (true, "CAM OFF"),
@@ -578,6 +589,20 @@ public sealed class AppController : IDisposable
             Notify("Network", "Couldn't switch the network: " + Network.LastError);
         else if (Network.NeedsRestart)
             Notify("Network", "Windows needs a restart to finish switching the network adapter.");
+        else if (S.NetNotify && S.NetNotifyStyle == NotifyStyle.Badge)
+            FlashBadge(PrivacyDevice.Network, Network.State switch
+            {
+                NetworkState.NoDevice => (null, "NO NETWORK"),
+                NetworkState.Off => (true, "NET OFF"),
+                _ => (false, "NET ON"),
+            });
+        else if (S.NetNotify)
+            Notify("PrivacyToggle", Network.State switch
+            {
+                NetworkState.NoDevice => "No network adapter found",
+                NetworkState.Off => "Network disconnected",
+                _ => "Network reconnected",
+            });
     }
 
     private void OnNetworkStateChanged()
@@ -631,21 +656,21 @@ public sealed class AppController : IDisposable
         StateChanged?.Invoke();
     }
 
-    public HotkeySetting HotkeyFor(HotkeyTarget target) => target switch
+    public HotkeySetting HotkeyFor(PrivacyDevice target) => target switch
     {
-        HotkeyTarget.Camera => S.CameraHotkey,
-        HotkeyTarget.Network => S.NetworkHotkey,
+        PrivacyDevice.Camera => S.CameraHotkey,
+        PrivacyDevice.Network => S.NetworkHotkey,
         _ => S.Hotkey,
     };
 
     /// <summary>Tries a new hotkey. Returns null on success, or why it was rejected (the old one stays).</summary>
-    public string? TryChangeHotkey(HotkeySetting hotkey, HotkeyTarget target)
+    public string? TryChangeHotkey(HotkeySetting hotkey, PrivacyDevice target)
     {
-        foreach (var other in Enum.GetValues<HotkeyTarget>().Where(t => t != target))
+        foreach (var other in Enum.GetValues<PrivacyDevice>().Where(t => t != target))
             if (hotkey.SameAs(HotkeyFor(other)))
                 return $"{hotkey} is already the {other.ToString().ToLowerInvariant()} shortcut.";
 
-        if (target != HotkeyTarget.Microphone || S.HotkeyMode == HotkeyMode.Toggle)
+        if (target != PrivacyDevice.Microphone || S.HotkeyMode == HotkeyMode.Toggle)
         {
             // Probe the combination before committing to it.
             Hotkeys.UnregisterAll();
@@ -661,8 +686,8 @@ public sealed class AppController : IDisposable
 
         switch (target)
         {
-            case HotkeyTarget.Camera: S.CameraHotkey = hotkey; break;
-            case HotkeyTarget.Network: S.NetworkHotkey = hotkey; break;
+            case PrivacyDevice.Camera: S.CameraHotkey = hotkey; break;
+            case PrivacyDevice.Network: S.NetworkHotkey = hotkey; break;
             default: S.Hotkey = hotkey; break;
         }
         Settings.Save();
@@ -731,6 +756,37 @@ public sealed class AppController : IDisposable
         UpdateTrays();
     }
 
+    public void SetTaskbarSpeed(bool on, TaskbarSpeedShow show)
+    {
+        S.TaskbarSpeed = on;
+        S.TaskbarSpeedShow = show;
+        Settings.Save();
+        UpdateTaskbarSpeed();
+    }
+
+    /// <summary>Opens, updates or closes the taskbar speed display to match the settings.</summary>
+    private void UpdateTaskbarSpeed()
+    {
+        if (S.TaskbarSpeed && !_disposed)
+        {
+            if (_taskbarSpeed == null)
+            {
+                _taskbarSpeed = new TaskbarSpeedWindow(S.TaskbarSpeedShow);
+                _taskbarSpeed.Clicked += () => ShowSettings(PrivacyDevice.Network);
+                _taskbarSpeed.Show();
+            }
+            else
+            {
+                _taskbarSpeed.SetShow(S.TaskbarSpeedShow);
+            }
+        }
+        else
+        {
+            _taskbarSpeed?.Close();
+            _taskbarSpeed = null;
+        }
+    }
+
     public void SetEnforceNetworkOff(bool on)
     {
         S.EnforceNetworkOff = on;
@@ -780,15 +836,24 @@ public sealed class AppController : IDisposable
     /// Saves a device's alert choices: the switch notification (its style and, for the badge style, corner)
     /// and the on-screen OFF badge with its corner.
     /// </summary>
-    public void SetAlerts(UsageDevice device, bool notify, NotifyStyle notifyStyle, OverlayCorner notifyCorner,
+    public void SetAlerts(PrivacyDevice device, bool notify, NotifyStyle notifyStyle, OverlayCorner notifyCorner,
         bool overlay, OverlayCorner corner)
     {
-        if (device == UsageDevice.Microphone)
-            (S.MicNotify, S.MicNotifyStyle, S.MicNotifyCorner, S.MicOverlay, S.MicOverlayCorner) =
-                (notify, notifyStyle, notifyCorner, overlay, corner);
-        else
-            (S.CamNotify, S.CamNotifyStyle, S.CamNotifyCorner, S.CamOverlay, S.CamOverlayCorner) =
-                (notify, notifyStyle, notifyCorner, overlay, corner);
+        switch (device)
+        {
+            case PrivacyDevice.Microphone:
+                (S.MicNotify, S.MicNotifyStyle, S.MicNotifyCorner, S.MicOverlay, S.MicOverlayCorner) =
+                    (notify, notifyStyle, notifyCorner, overlay, corner);
+                break;
+            case PrivacyDevice.Camera:
+                (S.CamNotify, S.CamNotifyStyle, S.CamNotifyCorner, S.CamOverlay, S.CamOverlayCorner) =
+                    (notify, notifyStyle, notifyCorner, overlay, corner);
+                break;
+            default:
+                (S.NetNotify, S.NetNotifyStyle, S.NetNotifyCorner, S.NetOverlay, S.NetOverlayCorner) =
+                    (notify, notifyStyle, notifyCorner, overlay, corner);
+                break;
+        }
         Settings.Save();
         UpdateOverlay();
     }
@@ -798,7 +863,8 @@ public sealed class AppController : IDisposable
 
     // ---------------- windows ----------------
 
-    public void ShowSettings()
+    /// <summary>Opens (or brings forward) Settings; <paramref name="page"/> picks that device's page.</summary>
+    public void ShowSettings(PrivacyDevice? page = null)
     {
         if (_disposed) return;
         if (_settingsWindow == null)
@@ -807,6 +873,7 @@ public sealed class AppController : IDisposable
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Show();
         }
+        if (page is PrivacyDevice device) _settingsWindow.ShowPage(device);
         if (_settingsWindow.WindowState == WindowState.Minimized)
             _settingsWindow.WindowState = WindowState.Normal;
         _settingsWindow.Activate();
@@ -823,16 +890,18 @@ public sealed class AppController : IDisposable
     {
         bool micBadge = S.MicOverlay && Mic?.State == MicState.Muted;
         bool camBadge = S.CamOverlay && Camera?.State == CameraState.Off;
+        bool netBadge = S.NetOverlay && Network?.State == NetworkState.Off;
 
         foreach (var corner in Enum.GetValues<OverlayCorner>())
         {
             bool mic = micBadge && S.MicOverlayCorner == corner;
             bool cam = camBadge && S.CamOverlayCorner == corner;
+            bool net = netBadge && S.NetOverlayCorner == corner;
             _overlays.TryGetValue(corner, out var window);
-            if (mic || cam)
+            if (mic || cam || net)
             {
                 if (window == null) _overlays[corner] = window = new OverlayWindow();
-                window.SetBadges(mic, cam);
+                window.SetBadges(mic, cam, net);
                 window.Place(corner);
                 if (!window.IsVisible) window.Show();
             }
@@ -855,11 +924,13 @@ public sealed class AppController : IDisposable
         _settingsWindow?.Close();
         foreach (var window in _overlays.Values) window.Close();
         foreach (var window in _notifyBadges.Values) window.Close();
+        _taskbarSpeed?.Close();
         Hotkeys?.Dispose();
         PushToTalk?.Dispose();
         Mic?.Dispose();
         Camera?.Dispose();
         Network?.Dispose();
+        NetworkUsage?.Dispose();
         Usage?.Dispose();
         _micTray?.Dispose(); // removes the icons so no "ghost" stays in the tray
         _camTray?.Dispose();

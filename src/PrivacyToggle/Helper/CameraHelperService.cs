@@ -28,10 +28,12 @@ public sealed class CameraHelperService : ServiceBase
     {
         _cts = new CancellationTokenSource();
         _loop = Task.Run(() => ServeAsync(_cts.Token));
+        Task.Run(NetworkTraffic.Start); // counting network use per app (Network page)
     }
 
     protected override void OnStop()
     {
+        NetworkTraffic.Stop();
         _cts?.Cancel();
         try { _loop?.Wait(TimeSpan.FromSeconds(3)); } catch { }
     }
@@ -175,6 +177,14 @@ public sealed class CameraHelperService : ServiceBase
         response.NetworkSupported = true;
         try
         {
+            if (request.Command.Equals("net-usage", StringComparison.OrdinalIgnoreCase))
+            {
+                response.Traffic = NetworkTraffic.Snapshot();
+                response.TrafficSession = NetworkTraffic.SessionId;
+                response.TrafficError = NetworkTraffic.Error;
+                return response;
+            }
+
             if (request.Command.Equals("net-set", StringComparison.OrdinalIgnoreCase))
             {
                 var errors = new List<string>();

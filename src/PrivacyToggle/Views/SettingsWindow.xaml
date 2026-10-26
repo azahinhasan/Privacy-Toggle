@@ -461,6 +461,35 @@
                         </StackPanel>
                     </Border>
 
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Using the network now" />
+                    <Border Style="{StaticResource Card}" Padding="16,6">
+                        <StackPanel>
+                            <ItemsControl x:Name="NetLiveList" />
+                            <StackPanel x:Name="NetLiveEmpty" Orientation="Horizontal" Margin="0,8">
+                                <Ellipse Width="11" Height="11" Fill="{DynamicResource NoneFill}" Stroke="{DynamicResource Ink}" StrokeThickness="2" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource Hint}" Margin="10,0,0,0" FontSize="13" Text="No app is sending or receiving data right now." />
+                            </StackPanel>
+                            <TextBlock x:Name="NetUsageProblem" Margin="0,8" TextWrapping="Wrap" Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- right margin leaves room for the last button's shadow -->
+                    <DockPanel Margin="0,0,6,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
+                            <RadioButton x:Name="NetRangeToday" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="Today" IsChecked="True" Checked="NetRange_Checked" />
+                            <RadioButton x:Name="NetRange7d" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="7 days" Checked="NetRange_Checked" />
+                            <RadioButton x:Name="NetRange30d" Style="{StaticResource SegmentSmall}" GroupName="NetRange" Content="30 days" Margin="0" Checked="NetRange_Checked" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Data usage" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Border Style="{StaticResource Card}" Padding="16,6">
+                        <StackPanel>
+                            <ItemsControl x:Name="NetUsageList" />
+                            <TextBlock x:Name="NetUsageEmpty" Style="{StaticResource Hint}" Margin="0,8" FontSize="13" Text="No network use recorded yet." />
+                            <TextBlock x:Name="NetUsageFooter" Style="{StaticResource Hint}" Margin="0,4,0,8" />
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock Style="{StaticResource SectionTitle}" Text="Shortcut" />
                     <Border Style="{StaticResource Card}" Padding="16,14">
                         <StackPanel>
@@ -522,6 +551,68 @@
                                     <TextBlock Style="{StaticResource Hint}" Text="Click it to disconnect or reconnect. Right-click for all controls and Settings." />
                                 </StackPanel>
                             </CheckBox>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Taskbar speed" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="TaskbarSpeedBox" Style="{StaticResource ToggleSwitch}" Checked="TaskbarSpeed_Changed" Unchecked="TaskbarSpeed_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show network speed on the taskbar" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="The current download and upload speed of this PC, next to the tray icons. Updates every second, and steps aside for fullscreen apps." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="TaskbarSpeedShowPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Show" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="TaskbarShowBoth" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Download and upload" Checked="TaskbarSpeed_Changed" />
+                                    <RadioButton x:Name="TaskbarShowDown" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Download only" Checked="TaskbarSpeed_Changed" />
+                                    <RadioButton x:Name="TaskbarShowUp" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Upload only" Checked="TaskbarSpeed_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Alerts" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NetNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Notify me when the network turns off or on" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Each time you switch it, as a Windows notification or a badge that disappears after 2 seconds." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="NetNotifyStylePanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Notification style" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="NetNotifyWindows" Style="{StaticResource Segment}" GroupName="NetNotifyStyle" Content="Windows notification" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetNotifyBadge" Style="{StaticResource Segment}" GroupName="NetNotifyStyle" Content="Corner badge" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                                <StackPanel x:Name="NetNotifyCornerPanel" Margin="0,12,0,0">
+                                    <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                    <WrapPanel>
+                                        <RadioButton x:Name="NetNotifyCornerTL" Style="{StaticResource Segment}" GroupName="NetNotifyCorner" Content="Top left" Checked="Alerts_Changed" />
+                                        <RadioButton x:Name="NetNotifyCornerTR" Style="{StaticResource Segment}" GroupName="NetNotifyCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </StackPanel>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="NetOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a NET OFF badge while off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A small badge that stays on top of every app and lets clicks pass through. If it shares a corner with another OFF badge, they sit side by side." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="NetCornerPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="NetCornerTL" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Top left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerTR" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerBL" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Bottom left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerBR" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Bottom right" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                     <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"

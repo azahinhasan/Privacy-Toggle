@@ -1,0 +1,21 @@
+<Window x:Class="PrivacyToggle.Views.TaskbarSpeedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PrivacyToggle network speed" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Focusable="False"
+        ResizeMode="NoResize" SizeToContent="WidthAndHeight" Cursor="Hand"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <!--
+        Sits on the taskbar just left of the system tray. Plain text like the tray clock, in the taskbar's colours.
+        Clicking it opens the Network page; the almost-transparent background makes the whole block clickable
+        (fully transparent pixels of a layered window let clicks through).
+    -->
+    <StackPanel x:Name="Lines" VerticalAlignment="Center" Background="#01000000" Margin="6,0"
+                ToolTip="Network speed — click to open PrivacyToggle's Network page"
+                MouseLeftButtonUp="Lines_MouseLeftButtonUp">
+        <TextBlock x:Name="DownText" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="11.5" FontWeight="SemiBold"
+                   TextAlignment="Right" MinWidth="76" />
+        <TextBlock x:Name="UpText" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="11.5" FontWeight="SemiBold"
+                   TextAlignment="Right" MinWidth="76" />
+    </StackPanel>
+</Window>

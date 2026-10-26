@@ -5,7 +5,7 @@ using PrivacyToggle.Models;
 
 namespace PrivacyToggle.Views;
 
-/// <summary>Small always-on-top, click-through "MIC OFF" / "CAM OFF" badges.</summary>
+/// <summary>Small always-on-top, click-through "MIC OFF" / "CAM OFF" / "NET OFF" badges.</summary>
 public partial class OverlayWindow : Window
 {
     private const double Gap = 12;
@@ -27,10 +27,11 @@ public partial class OverlayWindow : Window
         NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(ex));
     }
 
-    public void SetBadges(bool micOff, bool camOff)
+    public void SetBadges(bool micOff, bool camOff, bool netOff)
     {
         MicBadge.Visibility = micOff ? Visibility.Visible : Visibility.Collapsed;
         CamBadge.Visibility = camOff ? Visibility.Visible : Visibility.Collapsed;
+        NetBadge.Visibility = netOff ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void Place(OverlayCorner corner)

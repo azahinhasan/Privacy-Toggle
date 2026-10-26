@@ -3,8 +3,8 @@ using System.Windows.Input;
 
 namespace PrivacyToggle.Models;
 
-/// <summary>What a global shortcut switches.</summary>
-public enum HotkeyTarget { Microphone, Camera, Network }
+/// <summary>The things PrivacyToggle switches: what a shortcut, a badge or an alert is about.</summary>
+public enum PrivacyDevice { Microphone, Camera, Network }
 
 /// <summary>
 /// A key combination such as Ctrl+Alt+M. Modifiers are "Ctrl", "Alt", "Shift", "Win";
@@ -19,10 +19,10 @@ public sealed class HotkeySetting
     public static HotkeySetting CameraDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "V" };
     public static HotkeySetting NetworkDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "N" };
 
-    public static HotkeySetting DefaultFor(HotkeyTarget target) => target switch
+    public static HotkeySetting DefaultFor(PrivacyDevice target) => target switch
     {
-        HotkeyTarget.Camera => CameraDefault,
-        HotkeyTarget.Network => NetworkDefault,
+        PrivacyDevice.Camera => CameraDefault,
+        PrivacyDevice.Network => NetworkDefault,
         _ => Default,
     };
 
