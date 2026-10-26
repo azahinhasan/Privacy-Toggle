@@ -6,6 +6,21 @@
         Colours come from Light.xaml / Dark.xaml (Ink, Accent, CardBg, ...).
     -->
 
+    <!--
+        Keyboard focus (Tab) only: WPF shows a FocusVisualStyle for keyboard navigation, not for mouse clicks,
+        and draws it on the adorner layer, so it never changes a control's size.
+    -->
+    <Style x:Key="BrutalFocus">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" RadiusX="8" RadiusY="8" StrokeThickness="2" StrokeDashArray="2 1.5"
+                               Stroke="{DynamicResource Ink}" SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ================= Text ================= -->
     <Style x:Key="PageTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI Black, Segoe UI" />
@@ -49,7 +64,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
         <Setter Property="Padding" Value="0,12" />
         <Setter Property="Template">
             <Setter.Value>
@@ -84,9 +99,6 @@
                             <Setter TargetName="Thumb" Property="Width" Value="16" />
                             <Setter TargetName="Thumb" Property="Height" Value="16" />
                             <Setter TargetName="Thumb" Property="CornerRadius" Value="8" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Track" Property="BorderThickness" Value="3.5" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4" />
@@ -143,7 +155,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
         <Setter Property="Margin" Value="0,0,10,6" />
         <Setter Property="Padding" Value="14,7" />
         <Setter Property="Template">
@@ -176,9 +188,6 @@
                                 </Setter.Value>
                             </Setter>
                         </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderThickness" Value="3.5" />
-                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4" />
                         </Trigger>
@@ -200,7 +209,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Margin" Value="0,0,10,4" />
         <Setter Property="Template">
@@ -232,9 +241,6 @@
                                     <TranslateTransform X="2.5" Y="2.5" />
                                 </Setter.Value>
                             </Setter>
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderThickness" Value="3" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -291,7 +297,7 @@
         <Setter Property="Background" Value="{DynamicResource Accent}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
         <Setter Property="Padding" Value="16,8" />
         <Setter Property="Margin" Value="0,0,4,4" />
         <Setter Property="Template">
@@ -324,9 +330,6 @@
                                 </Setter.Value>
                             </Setter>
                         </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderThickness" Value="3.5" />
-                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
                             <Setter TargetName="Shadow" Property="Visibility" Value="Hidden" />
@@ -342,7 +345,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource BrutalFocus}" />
         <Setter Property="Padding" Value="14,7" />
         <Setter Property="Margin" Value="0,0,3,3" />
         <Setter Property="Template">
@@ -369,9 +372,6 @@
                                     <TranslateTransform X="3" Y="3" />
                                 </Setter.Value>
                             </Setter>
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderThickness" Value="3.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -457,7 +457,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="Bd" Padding="10,6" CornerRadius="4" BorderThickness="2" BorderBrush="Transparent" Background="Transparent">
+                    <!-- Vertical margin keeps a hovered item's outline from touching the selected one's. -->
+                    <Border x:Name="Bd" Margin="0,2" Padding="10,6" CornerRadius="4" BorderThickness="2" BorderBrush="Transparent" Background="Transparent">
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
