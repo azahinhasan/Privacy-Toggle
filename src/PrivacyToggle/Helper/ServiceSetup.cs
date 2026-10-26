@@ -30,7 +30,7 @@ internal static class ServiceSetup
             "start=", "auto",
             "DisplayName=", CameraProtocol.ServiceDisplayName);
         if (rc != 0) return 1;
-        Sc("description", CameraProtocol.ServiceName, "Turns cameras on and off for PrivacyToggle.");
+        Sc("description", CameraProtocol.ServiceName, "Turns cameras and network adapters on and off for PrivacyToggle.");
         Sc("failure", CameraProtocol.ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/5000/restart/5000");
 
         try
@@ -50,11 +50,13 @@ internal static class ServiceSetup
     {
         if (!IsElevated()) return 5;
 
-        // Turn back on every camera PrivacyToggle turned off, so none stays disabled after uninstall.
-        foreach (var id in DisabledLedger.Load())
+        // Turn back on every camera and network adapter PrivacyToggle turned off, so none stays disabled after uninstall.
+        foreach (var id in DisabledLedger.Cameras.Load())
             CameraDevices.SetEnabled(id, true, out _, out _);
         StoppedServices.RestartAll();
-        DisabledLedger.Delete();
+        foreach (var id in DisabledLedger.Adapters.Load())
+            NetworkAdapters.SetEnabled(id, true, out _);
+        DisabledLedger.DeleteAll();
 
         RemoveService();
         return 0;

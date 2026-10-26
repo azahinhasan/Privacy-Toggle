@@ -3,6 +3,9 @@ using System.Windows.Input;
 
 namespace PrivacyToggle.Models;
 
+/// <summary>What a global shortcut switches.</summary>
+public enum HotkeyTarget { Microphone, Camera, Network }
+
 /// <summary>
 /// A key combination such as Ctrl+Alt+M. Modifiers are "Ctrl", "Alt", "Shift", "Win";
 /// Key is a WPF <see cref="System.Windows.Input.Key"/> name.
@@ -14,6 +17,14 @@ public sealed class HotkeySetting
 
     public static HotkeySetting Default => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "M" };
     public static HotkeySetting CameraDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "V" };
+    public static HotkeySetting NetworkDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "N" };
+
+    public static HotkeySetting DefaultFor(HotkeyTarget target) => target switch
+    {
+        HotkeyTarget.Camera => CameraDefault,
+        HotkeyTarget.Network => NetworkDefault,
+        _ => Default,
+    };
 
     [JsonIgnore] public bool Ctrl => Has("Ctrl");
     [JsonIgnore] public bool Alt => Has("Alt");

@@ -64,4 +64,18 @@ public sealed class AppSettings
     public bool EnforceCameraOff { get; set; } = true;
     public bool ShowCameraTrayIcon { get; set; } = true;
     public bool ShowMicTrayIcon { get; set; } = true;
+
+    // ---- network ----
+    public HotkeySetting NetworkHotkey { get; set; } = HotkeySetting.NetworkDefault;
+    public CameraStartState NetworkOnStartState { get; set; } = CameraStartState.KeepLast;
+
+    /// <summary>Null until the network was first switched; KeepLast then simply follows the adapters.</summary>
+    public bool? LastNetworkOff { get; set; }
+
+    public DeviceMode NetworkDeviceMode { get; set; } = DeviceMode.All;
+    public List<string> SelectedNetworkIds { get; set; } = new();
+    public bool EnforceNetworkOff { get; set; } = true;
+
+    /// <summary>Off by default: the network switch is new, so existing users don't get a third icon unasked.</summary>
+    public bool ShowNetworkTrayIcon { get; set; }
 }

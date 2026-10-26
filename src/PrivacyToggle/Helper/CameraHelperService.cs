@@ -117,6 +117,9 @@ public sealed class CameraHelperService : ServiceBase
                 return response;
             }
 
+            if (request.Command.StartsWith("net-", StringComparison.OrdinalIgnoreCase))
+                return ExecuteNetwork(request, response);
+
             bool close = request.Command.Equals("close-and-set", StringComparison.OrdinalIgnoreCase);
             if (close || request.Command.Equals("set", StringComparison.OrdinalIgnoreCase))
             {
@@ -142,7 +145,7 @@ public sealed class CameraHelperService : ServiceBase
                     {
                         var error = CameraDevices.SetEnabled(id, request.Enable, out bool restart, out var blocker);
                         if (error != null) errors.Add(error);
-                        else DisabledLedger.Record(id, disabled: !request.Enable);
+                        else DisabledLedger.Cameras.Record(id, disabled: !request.Enable);
                         response.NeedsRestart |= restart;
                         response.Blocker ??= blocker;
                     }
@@ -165,18 +168,59 @@ public sealed class CameraHelperService : ServiceBase
         }
         return response;
     }
+
+    /// <summary>"net-list" and "net-set": network adapters, which work like cameras minus the blocker handling.</summary>
+    private static CameraResponse ExecuteNetwork(CameraRequest request, CameraResponse response)
+    {
+        response.NetworkSupported = true;
+        try
+        {
+            if (request.Command.Equals("net-set", StringComparison.OrdinalIgnoreCase))
+            {
+                var errors = new List<string>();
+                foreach (var id in request.Ids.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    var error = NetworkAdapters.SetEnabled(id, request.Enable, out bool restart);
+                    if (error != null) errors.Add(error);
+                    else DisabledLedger.Adapters.Record(id, disabled: !request.Enable);
+                    response.NeedsRestart |= restart;
+                }
+                if (errors.Count > 0)
+                {
+                    response.Ok = false;
+                    response.Error = string.Join(" ", errors.Distinct());
+                }
+            }
+            response.Adapters = NetworkAdapters.List();
+        }
+        catch (Exception ex)
+        {
+            response.Ok = false;
+            response.Error = ex.Message;
+        }
+        return response;
+    }
 }
 
 /// <summary>
-/// Remembers which cameras the helper disabled, so uninstalling can turn them back on
-/// (and leave alone cameras the user disabled in Device Manager).
+/// Remembers which devices the helper disabled, so uninstalling can turn them back on
+/// (and leave alone devices the user disabled in Device Manager).
 /// </summary>
-internal static class DisabledLedger
+internal sealed class DisabledLedger
 {
-    private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "PrivacyToggle", "disabled-cameras.json");
+    public static readonly DisabledLedger Cameras = new("disabled-cameras.json");
+    public static readonly DisabledLedger Adapters = new("disabled-adapters.json");
 
-    public static HashSet<string> Load()
+    private static string Folder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "PrivacyToggle");
+
+    private readonly string _fileName;
+
+    private DisabledLedger(string fileName) => _fileName = fileName;
+
+    private string FilePath => Path.Combine(Folder, _fileName);
+
+    public HashSet<string> Load()
     {
         try
         {
@@ -190,7 +234,7 @@ internal static class DisabledLedger
         }
     }
 
-    public static void Record(string id, bool disabled)
+    public void Record(string id, bool disabled)
     {
         try
         {
@@ -202,8 +246,9 @@ internal static class DisabledLedger
         catch { }
     }
 
-    public static void Delete()
+    /// <summary>Removes PrivacyToggle's whole ProgramData folder (every ledger, and the stopped-services list).</summary>
+    public static void DeleteAll()
     {
-        try { Directory.Delete(Path.GetDirectoryName(FilePath)!, recursive: true); } catch { }
+        try { Directory.Delete(Folder, recursive: true); } catch { }
     }
 }

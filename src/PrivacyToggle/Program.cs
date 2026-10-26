@@ -28,6 +28,12 @@ public static class Program
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(CameraDevices.List(), CameraProtocol.Json));
             return 0;
         }
+        // Diagnostics: prints the network adapters the helper would control (works without admin).
+        if (Has("--list-adapters"))
+        {
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(NetworkAdapters.List(), CameraProtocol.Json));
+            return 0;
+        }
         // Diagnostics: whether an app is using a camera through Frame Server (needs admin, like the helper).
         if (Has("--camera-in-use"))
         {

@@ -10,12 +10,20 @@ public static class CameraProtocol
 {
     public const string PipeName = "PrivacyToggle.CameraHelper";
     public const string ServiceName = "PrivacyToggleHelper";
-    public const string ServiceDisplayName = "PrivacyToggle Camera Helper";
+    public const string ServiceDisplayName = "PrivacyToggle Helper";
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 }
 
 public sealed record CameraDevice(string Id, string Name, bool Enabled);
+
+public enum NetworkKind { WiFi, Ethernet, Mobile }
+
+/// <summary>
+/// A physical network adapter. <see cref="Alias"/> is its Network Connections name ("Wi-Fi", "Ethernet 2");
+/// <see cref="Connected"/> means it's enabled and has a working connection.
+/// </summary>
+public sealed record NetworkAdapter(string Id, string Name, string Alias, NetworkKind Kind, bool Enabled, bool Connected);
 
 /// <summary>A program that held a camera open and refused to let Windows turn it off.</summary>
 public sealed class BlockerInfo
@@ -29,7 +37,10 @@ public sealed class BlockerInfo
 
 public sealed class CameraRequest
 {
-    /// <summary>"list", "set", "close-and-set" (close <see cref="CloseProcessId"/>, then set), or "in-use".</summary>
+    /// <summary>
+    /// Cameras: "list", "set", "close-and-set" (close <see cref="CloseProcessId"/>, then set), or "in-use".
+    /// Network adapters: "net-list" or "net-set" (<see cref="Ids"/> are adapter ids then).
+    /// </summary>
     public string Command { get; set; } = "list";
     public bool Enable { get; set; }
     public List<string> Ids { get; set; } = new();
@@ -51,4 +62,12 @@ public sealed class CameraResponse
     public bool? InUse { get; set; }
 
     public List<CameraDevice> Devices { get; set; } = new();
+
+    /// <summary>
+    /// Set by helpers that understand the network commands. A helper from before 1.6 answers "net-list"
+    /// as a camera "list" and leaves this null, so the app knows the helper needs updating.
+    /// </summary>
+    public bool? NetworkSupported { get; set; }
+
+    public List<NetworkAdapter> Adapters { get; set; } = new();
 }

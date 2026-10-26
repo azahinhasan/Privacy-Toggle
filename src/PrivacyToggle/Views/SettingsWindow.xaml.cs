@@ -33,12 +33,15 @@ public partial class SettingsWindow : Window
         LoadValues();
         RefreshDevices();
         RefreshCameras();
+        RefreshNetwork();
         RefreshStatus();
 
-        Recorder.HotkeyRecorded += h => OnHotkeyRecorded(h, camera: false);
+        Recorder.HotkeyRecorded += h => OnHotkeyRecorded(h, HotkeyTarget.Microphone);
         Recorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
-        CamRecorder.HotkeyRecorded += h => OnHotkeyRecorded(h, camera: true);
+        CamRecorder.HotkeyRecorded += h => OnHotkeyRecorded(h, HotkeyTarget.Camera);
         CamRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
+        NetRecorder.HotkeyRecorded += h => OnHotkeyRecorded(h, HotkeyTarget.Network);
+        NetRecorder.RecordingChanged += recording => _app.SuspendHotkey(recording);
 
         ActivityPage.Attach(_app.Usage);
         _ = CheckForUpdatesAsync(); // quietly, so the About item can show "NEW"
@@ -46,6 +49,7 @@ public partial class SettingsWindow : Window
         _app.StateChanged += RefreshStatus;
         _app.DevicesChanged += RefreshDevices;
         _app.CameraDevicesChanged += RefreshCameras;
+        _app.NetworkAdaptersChanged += RefreshNetwork;
         ThemeService.Changed += OnThemeChanged;
         SourceInitialized += (_, _) => ThemeService.ApplyTitleBar(this);
         Closed += (_, _) =>
@@ -54,6 +58,7 @@ public partial class SettingsWindow : Window
             _app.StateChanged -= RefreshStatus;
             _app.DevicesChanged -= RefreshDevices;
             _app.CameraDevicesChanged -= RefreshCameras;
+            _app.NetworkAdaptersChanged -= RefreshNetwork;
             ThemeService.Changed -= OnThemeChanged;
         };
     }
@@ -114,9 +119,19 @@ public partial class SettingsWindow : Window
         CamDevSelected.IsChecked = S.CameraDeviceMode == DeviceMode.Selected;
         CamEnforceBox.IsChecked = S.EnforceCameraOff;
 
+        // network
+        NetStartKeepLast.IsChecked = S.NetworkOnStartState == CameraStartState.KeepLast;
+        NetStartOn.IsChecked = S.NetworkOnStartState == CameraStartState.On;
+        NetStartOff.IsChecked = S.NetworkOnStartState == CameraStartState.Off;
+        NetDevAll.IsChecked = S.NetworkDeviceMode == DeviceMode.All;
+        NetDevSelected.IsChecked = S.NetworkDeviceMode == DeviceMode.Selected;
+        NetEnforceBox.IsChecked = S.EnforceNetworkOff;
+        NetTrayBox.IsChecked = S.ShowNetworkTrayIcon;
+
         // shortcuts
         Recorder.Hotkey = S.Hotkey;
         CamRecorder.Hotkey = S.CameraHotkey;
+        NetRecorder.Hotkey = S.NetworkHotkey;
         ModeToggle.IsChecked = S.HotkeyMode == HotkeyMode.Toggle;
         ModePtt.IsChecked = S.HotkeyMode == HotkeyMode.PushToTalk;
 
@@ -159,6 +174,10 @@ public partial class SettingsWindow : Window
         CamNotifyCornerPanel.Visibility = CamNotifyBadge.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         DeviceListPanel.IsEnabled = DevSelected.IsChecked == true;
         CamListPanel.IsEnabled = CamDevSelected.IsChecked == true;
+        NetListPanel.IsEnabled = NetDevSelected.IsChecked == true;
+        NetSelectNoneWarning.Visibility = S.NetworkDeviceMode == DeviceMode.Selected && S.SelectedNetworkIds.Count == 0
+            ? Visibility.Visible : Visibility.Collapsed;
+        NetHotkeyHint.Text = $"Press {S.NetworkHotkey} to disconnect, and again to reconnect.";
         SelectNoneWarning.Visibility = S.DeviceMode == DeviceMode.Selected && S.SelectedDeviceIds.Count == 0
             ? Visibility.Visible : Visibility.Collapsed;
         CamSelectNoneWarning.Visibility = S.CameraDeviceMode == DeviceMode.Selected && S.SelectedCameraIds.Count == 0
@@ -168,7 +187,7 @@ public partial class SettingsWindow : Window
             : $"Microphones stay muted and are live only while you hold {S.Hotkey}. The key press is not passed on to other apps.";
         CamHotkeyHint.Text = $"Press {S.CameraHotkey} to turn the camera off, and again to turn it back on.";
         MicNoTrayWarning.Visibility = CamNoTrayWarning.Visibility =
-            !S.ShowMicTrayIcon && !S.ShowCameraTrayIcon ? Visibility.Visible : Visibility.Collapsed;
+            !S.ShowMicTrayIcon && !S.ShowCameraTrayIcon && !S.ShowNetworkTrayIcon ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---------------- status ----------------
@@ -226,14 +245,61 @@ public partial class SettingsWindow : Window
         CamCardButton.IsEnabled = !camService.Busy && cam is CameraState.On or CameraState.Off;
         CamHelperBanner.Visibility = cam == CameraState.Unavailable ? Visibility.Visible : Visibility.Collapsed;
         HelperStatusText.Text = cam == CameraState.Unavailable
-            ? "Camera helper: not installed"
-            : "Camera helper: running";
+            ? "Helper service: not installed"
+            : _app.Network.HelperOutdated ? "Helper service: running (an older version, without network control)"
+            : "Helper service: running";
+
+        // network
+        var netService = _app.Network;
+        var net = netService.State;
+        string netColor = net switch { NetworkState.Off => "MutedColor", NetworkState.On => "LiveColor", _ => "NoneColor" };
+        NetDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, netColor);
+        NetStateBadge.SetResourceReference(Border.BackgroundProperty, netColor.Replace("Color", "Fill"));
+        NetChip.Text = net switch
+        {
+            NetworkState.Off => "Network off",
+            NetworkState.On => "Network on",
+            NetworkState.NoDevice => "No network adapter",
+            _ => "Network control unavailable",
+        };
+        NetCardIcon.Source = Image(net switch { NetworkState.Off => "net-off.ico", NetworkState.On => "net-on.ico", _ => "net-none.ico" });
+        NetCardState.Text = netService.Busy ? (netService.DesiredOff ? "Disconnecting…" : "Reconnecting…") : net switch
+        {
+            NetworkState.Off => "Off",
+            NetworkState.On => "On",
+            NetworkState.NoDevice => "Not found",
+            _ => "Unavailable",
+        };
+        NetCardHint.Text = net switch
+        {
+            NetworkState.Unavailable => netService.HelperOutdated
+                ? "Needs the latest installer — see the Network page."
+                : "Needs the helper service — see the Network page.",
+            NetworkState.NoDevice => "No Wi-Fi or wired adapter found.",
+            _ when netService.LastError != null => "Last switch failed: " + netService.LastError,
+            _ when netService.NeedsRestart => "Windows needs a restart to finish the switch.",
+            _ => $"{S.NetworkHotkey} to switch",
+        };
+        var targets = netService.Targets;
+        int connected = targets.Count(a => a.Connected);
+        NetCardDevices.Text = net == NetworkState.Unavailable ? "Helper needs updating"
+            : targets.Count == 1 ? (connected == 1 ? "1 adapter · connected" : "1 adapter")
+            : $"{targets.Count} adapters" + (connected > 0 ? $" · {connected} connected" : "");
+        NetCardButton.Content = net == NetworkState.Off ? "Reconnect" : "Disconnect";
+        NetCardButton.IsEnabled = !netService.Busy && net is NetworkState.On or NetworkState.Off;
+        NetHelperBanner.Visibility = net == NetworkState.Unavailable ? Visibility.Visible : Visibility.Collapsed;
+        NetHelperBannerTitle.Text = netService.HelperOutdated ? "The helper service needs updating" : "Network control isn't installed";
+        NetHelperBannerText.Text = netService.HelperOutdated
+            ? "The PrivacyToggle helper service on this PC is from an older version that can't switch the network. Run the latest PrivacyToggle-Setup to update it."
+            : "Turning the network off needs the PrivacyToggle helper service, which the installer sets up (it asks for admin rights once). Run PrivacyToggle-Setup to enable it.";
 
         // shortcuts
         HotkeyWarning.Text = _app.HotkeyError ?? "";
         HotkeyWarning.Visibility = _app.HotkeyError == null ? Visibility.Collapsed : Visibility.Visible;
         CamHotkeyWarning.Text = _app.CameraHotkeyError ?? "";
         CamHotkeyWarning.Visibility = _app.CameraHotkeyError == null ? Visibility.Collapsed : Visibility.Visible;
+        NetHotkeyWarning.Text = _app.NetworkHotkeyError ?? "";
+        NetHotkeyWarning.Visibility = _app.NetworkHotkeyError == null ? Visibility.Collapsed : Visibility.Visible;
 
         _loading = true;
         StartWithWindowsBox.IsChecked = S.StartWithWindows;
@@ -252,6 +318,22 @@ public partial class SettingsWindow : Window
         FillChecklist(CamList, _app.Camera.Devices.Select(d => (d.Id, d.Name)), S.SelectedCameraIds, CamCheck_Changed);
         NoCamerasText.Visibility = _app.Camera.Devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RefreshStatus();
+    }
+
+    private void RefreshNetwork()
+    {
+        FillChecklist(NetList, _app.Network.Adapters.Select(a => (a.Id, AdapterLabel(a))), S.SelectedNetworkIds, NetCheck_Changed);
+        NoAdaptersText.Visibility = _app.Network.Adapters.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RefreshStatus();
+    }
+
+    /// <summary>"Wi-Fi · Intel(R) Wi-Fi 6E AX211 — connected".</summary>
+    private static string AdapterLabel(Helper.NetworkAdapter a)
+    {
+        string kind = a.Kind switch { Helper.NetworkKind.WiFi => "Wi-Fi", Helper.NetworkKind.Mobile => "Mobile", _ => "Wired" };
+        string state = !a.Enabled ? "off" : a.Connected ? "connected" : "not connected";
+        string name = a.Alias.Equals(a.Name, StringComparison.OrdinalIgnoreCase) ? a.Name : $"{a.Alias} · {a.Name}";
+        return $"{kind}: {name} — {state}";
     }
 
     private void FillChecklist(ItemsControl list, IEnumerable<(string Id, string Name)> devices, List<string> selectedIds,
@@ -276,6 +358,7 @@ public partial class SettingsWindow : Window
 
     private void MicCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggle();
     private void CamCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggleCamera();
+    private void NetCardButton_Click(object sender, RoutedEventArgs e) => _app.UserToggleNetwork();
 
     // ---------------- navigation ----------------
 
@@ -285,7 +368,7 @@ public partial class SettingsWindow : Window
         var pages = new (RadioButton Nav, FrameworkElement Page)[]
         {
             (NavOverview, PageOverview), (NavActivity, PageActivity), (NavMic, PageMic), (NavCamera, PageCamera),
-            (NavGeneral, PageGeneral), (NavAbout, PageAbout),
+            (NavNetwork, PageNetwork), (NavGeneral, PageGeneral), (NavAbout, PageAbout),
         };
         foreach (var (nav, page) in pages)
             page.Visibility = nav.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -368,14 +451,57 @@ public partial class SettingsWindow : Window
         _app.SetEnforceCameraOff(CamEnforceBox.IsChecked == true);
     }
 
+    // ---------------- network ----------------
+
+    private void NetOnStart_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        S.NetworkOnStartState = NetStartOff.IsChecked == true ? CameraStartState.Off
+            : NetStartOn.IsChecked == true ? CameraStartState.On
+            : CameraStartState.KeepLast;
+        _app.Save();
+    }
+
+    private void NetDevices_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        SaveNetworkTargets();
+    }
+
+    private void NetCheck_Changed(object sender, RoutedEventArgs e) => SaveNetworkTargets();
+
+    private void SaveNetworkTargets()
+    {
+        var ids = SelectedIds(NetList, S.SelectedNetworkIds);
+        _app.SetNetworkTargets(NetDevSelected.IsChecked == true ? DeviceMode.Selected : DeviceMode.All, ids);
+        UpdateDependentControls();
+    }
+
+    private void NetEnforce_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _app.SetEnforceNetworkOff(NetEnforceBox.IsChecked == true);
+    }
+
+    private void NetTray_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _app.SetShowNetworkTrayIcon(NetTrayBox.IsChecked == true);
+        UpdateDependentControls();
+    }
+
     // ---------------- shortcuts ----------------
 
-    private void OnHotkeyRecorded(HotkeySetting hotkey, bool camera)
+    private void OnHotkeyRecorded(HotkeySetting hotkey, HotkeyTarget target)
     {
-        var error = _app.TryChangeHotkey(hotkey, camera);
-        var recorder = camera ? CamRecorder : Recorder;
-        var warning = camera ? CamHotkeyWarning : HotkeyWarning;
-        recorder.Hotkey = camera ? S.CameraHotkey : S.Hotkey;
+        var error = _app.TryChangeHotkey(hotkey, target);
+        var (recorder, warning) = target switch
+        {
+            HotkeyTarget.Camera => (CamRecorder, CamHotkeyWarning),
+            HotkeyTarget.Network => (NetRecorder, NetHotkeyWarning),
+            _ => (Recorder, HotkeyWarning),
+        };
+        recorder.Hotkey = _app.HotkeyFor(target);
         if (error == null)
         {
             warning.Visibility = Visibility.Collapsed;
@@ -390,8 +516,9 @@ public partial class SettingsWindow : Window
         if (error != null) warning.Visibility = Visibility.Visible; // RefreshStatus shows only runtime errors
     }
 
-    private void ResetHotkey_Click(object sender, RoutedEventArgs e) => OnHotkeyRecorded(HotkeySetting.Default, camera: false);
-    private void ResetCamHotkey_Click(object sender, RoutedEventArgs e) => OnHotkeyRecorded(HotkeySetting.CameraDefault, camera: true);
+    private void ResetHotkey_Click(object sender, RoutedEventArgs e) => OnHotkeyRecorded(HotkeySetting.Default, HotkeyTarget.Microphone);
+    private void ResetCamHotkey_Click(object sender, RoutedEventArgs e) => OnHotkeyRecorded(HotkeySetting.CameraDefault, HotkeyTarget.Camera);
+    private void ResetNetHotkey_Click(object sender, RoutedEventArgs e) => OnHotkeyRecorded(HotkeySetting.NetworkDefault, HotkeyTarget.Network);
 
     private void Mode_Changed(object sender, RoutedEventArgs e)
     {
