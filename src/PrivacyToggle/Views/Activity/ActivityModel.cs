@@ -6,10 +6,16 @@ public enum ActivityRange { Hour1, Hours6, Hours24, Days7 }
 public enum ActivityFilter { All, Microphone, Camera }
 public enum ActivitySort { MostRecent, MostUsed, Name }
 
-/// <summary>A stretch of use as drawn: local times, clipped to the window, near-touching sessions merged.</summary>
-public sealed record UsageSpan(DateTime Start, DateTime End, UsageDevice Device, bool Live)
+/// <summary>
+/// A stretch of use as drawn: local times, clipped to the window, near-touching sessions merged.
+/// <see cref="Uncertain"/>: the app was connected to the camera, but it can't be told whether it used it.
+/// </summary>
+public sealed record UsageSpan(DateTime Start, DateTime End, UsageDevice Device, bool Live, bool Uncertain = false)
 {
     public TimeSpan Duration => End - Start;
+
+    /// <summary>"in use" for a confirmed live span, "connected" for an uncertain one.</summary>
+    public string LiveWord => Uncertain ? "connected" : "in use";
 }
 
 /// <summary>Everything the Activity page shows for one app within the selected window.</summary>
@@ -26,7 +32,7 @@ public sealed class AppActivity
 }
 
 public sealed record TodayStats(TimeSpan Mic, TimeSpan Camera, int Apps, AppIdentity? LastApp, DateTime? LastTime,
-    UsageDevice? LastDevice, bool LastLive);
+    UsageDevice? LastDevice, bool LastLive, bool LastUncertain);
 
 /// <summary>Turns recorded sessions into what the Activity page draws. No UI code.</summary>
 public static class ActivityModel
@@ -96,10 +102,12 @@ public static class ActivityModel
             .SelectMany(s => Clip(new[] { s }, blocked, now.Date, now).Select(sp => (s.AppKey, Span: sp)))
             .ToList();
 
-        // Most recent real access (blocked time excluded): anything in use now wins, then the latest end.
+        // Most recent real access (blocked time excluded): anything in use now wins (confirmed use before a
+        // mere camera connection), then the latest end.
         var recent = sessions
             .SelectMany(s => Clip(new[] { s }, blocked, now - Length(ActivityRange.Days7), now).Select(sp => (s.AppKey, Span: sp)))
-            .OrderByDescending(x => x.Span.Live)
+            .OrderByDescending(x => x.Span.Live && !x.Span.Uncertain)
+            .ThenByDescending(x => x.Span.Live)
             .ThenByDescending(x => x.Span.End)
             .Select(x => ((string AppKey, UsageSpan Span)?)x)
             .FirstOrDefault();
@@ -111,7 +119,8 @@ public static class ActivityModel
             recent == null ? null : AppIdentity.For(recent.Value.AppKey),
             recent?.Span.End,
             recent?.Span.Device,
-            recent?.Span.Live == true);
+            recent?.Span.Live == true,
+            recent?.Span.Uncertain == true);
     }
 
     /// <summary>
@@ -160,7 +169,7 @@ public static class ActivityModel
             {
                 if (pe - ps < TimeSpan.FromSeconds(1)) continue;
                 // Still live only if this piece runs up to now (not cut short by a block).
-                yield return new UsageSpan(ps, pe, s.Device, s.End == null && pe >= now);
+                yield return new UsageSpan(ps, pe, s.Device, s.End == null && pe >= now, s.Uncertain);
             }
         }
     }
@@ -183,7 +192,13 @@ public static class ActivityModel
             {
                 if (current != null && s.Start - current.End <= MergeGap)
                 {
-                    current = current with { End = s.End > current.End ? s.End : current.End, Live = current.Live || s.Live };
+                    // Uncertain only if every joined piece is: one confirmed session makes the bar real use.
+                    current = current with
+                    {
+                        End = s.End > current.End ? s.End : current.End,
+                        Live = current.Live || s.Live,
+                        Uncertain = current.Uncertain && s.Uncertain,
+                    };
                 }
                 else
                 {

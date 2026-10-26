@@ -37,6 +37,13 @@ public sealed class UsageSession
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool FromCameraLog { get; set; }
+
+    /// <summary>
+    /// A camera-log session that couldn't be confirmed: another app kept the camera busy the whole time,
+    /// so "the camera is in use" didn't prove this app was using it. Shown as "connected", not "in use".
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Uncertain { get; set; }
 }
 
 /// <summary>
@@ -84,6 +91,8 @@ public sealed class UsageTracker : IDisposable
     private readonly MMDeviceEnumerator _audio = new();
     private readonly DispatcherTimer _cameraPoll;
     private readonly Dictionary<UsageSession, int> _cameraClients = new(); // open camera-log session -> process id
+    private readonly Dictionary<string, int> _cameraHolders = new(); // app key -> process id of apps that open every camera that appears
+    private DateTime _lastCameraArrival = DateTime.MinValue; // UTC; when Frame Server last picked up a camera
     private EventLogWatcher? _cameraLog;
     private bool _cameraChecking;
     private readonly ManualResetEvent _stop = new(false);
@@ -250,9 +259,17 @@ public sealed class UsageTracker : IDisposable
 
     // ---------------- camera: Frame Server log ----------------
 
-    // Written by each app (in its own process) when it connects to a camera through Frame Server.
+    // Frame Server's log: event 7 is written by each app (in its own process) when it connects to a camera;
+    // event 62 by Frame Server when it has (re)read the list of cameras, e.g. after one was turned on or plugged in.
     private const string CameraLogName = "Microsoft-Windows-MF-FrameServer/Camera_FrameServer";
-    private const string CameraConnectQuery = "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and EventID=7]]";
+    private const string CameraLogQuery = "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and (EventID=7 or EventID=62)]]";
+    private const int CameraConnectEvent = 7, CameraArrivalEvent = 62;
+
+    /// <summary>
+    /// Connections this soon after a camera appears are apps reacting to the new camera (browsers read its
+    /// formats, virtual-camera apps grab it again), not a person starting to use it.
+    /// </summary>
+    private static readonly TimeSpan ArrivalProbeWindow = TimeSpan.FromSeconds(10);
 
     /// <summary>Picks up apps already connected, then follows the log for new ones.</summary>
     private void WatchCameraLog()
@@ -262,23 +279,31 @@ public sealed class UsageTracker : IDisposable
             // Apps that connected in the last hour and are still running may still be using a camera;
             // the first idle check drops them if not. PrivacyToggle wasn't watching before, so count from now.
             var query = new EventLogQuery(CameraLogName, PathType.LogName,
-                "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and EventID=7 and TimeCreated[timediff(@SystemTime) <= 3600000]]]");
+                "*[System[Provider[@Name='Microsoft-Windows-MF-FrameServer'] and (EventID=7 or EventID=62) and TimeCreated[timediff(@SystemTime) <= 3600000]]]");
             using (var reader = new EventLogReader(query))
             {
-                var pids = new HashSet<int>();
+                var pids = new Dictionary<int, bool>(); // pid -> only ever connected right after a camera appeared
                 for (var record = reader.ReadEvent(); record != null; record = reader.ReadEvent())
                     using (record)
-                        if (record.ProcessId is int pid) pids.Add(pid);
-                foreach (var pid in pids) OnCameraClient(pid, DateTime.UtcNow);
+                    {
+                        var time = record.TimeCreated?.ToUniversalTime() ?? DateTime.UtcNow;
+                        if (record.Id == CameraArrivalEvent) _lastCameraArrival = time;
+                        else if (record.ProcessId is int pid)
+                            pids[pid] = IsArrivalProbe(time) && pids.GetValueOrDefault(pid, true);
+                    }
+                foreach (var (pid, probe) in pids) OnCameraClient(pid, DateTime.UtcNow, probe);
             }
 
-            _cameraLog = new EventLogWatcher(new EventLogQuery(CameraLogName, PathType.LogName, CameraConnectQuery));
+            _cameraLog = new EventLogWatcher(new EventLogQuery(CameraLogName, PathType.LogName, CameraLogQuery));
             _cameraLog.EventRecordWritten += (_, e) =>
             {
                 using var record = e.EventRecord;
-                if (record?.ProcessId is not int pid) return;
+                if (record == null) return;
                 var time = record.TimeCreated?.ToUniversalTime() ?? DateTime.UtcNow;
-                _dispatcher.BeginInvoke(() => OnCameraClient(pid, time));
+                if (record.Id == CameraArrivalEvent)
+                    _dispatcher.BeginInvoke(() => _lastCameraArrival = time);
+                else if (record.Id == CameraConnectEvent && record.ProcessId is int pid)
+                    _dispatcher.BeginInvoke(() => OnCameraClient(pid, time, IsArrivalProbe(time)));
             };
             _cameraLog.Enabled = true;
         }
@@ -288,10 +313,21 @@ public sealed class UsageTracker : IDisposable
         }
     }
 
-    private void OnCameraClient(int pid, DateTime startUtc)
+    private bool IsArrivalProbe(DateTime connectUtc) =>
+        connectUtc >= _lastCameraArrival && connectUtc - _lastCameraArrival <= ArrivalProbeWindow;
+
+    private void OnCameraClient(int pid, DateTime startUtc, bool arrivalProbe)
     {
         if (pid == Environment.ProcessId || ExePath(pid) is not { } path) return; // gone already
         string appKey = "np:" + path;
+        if (arrivalProbe)
+        {
+            // Not counted as use. It may keep the camera busy, though (virtual-camera apps hold it all the time),
+            // which makes "the camera is in use" unreliable for other apps until the camera goes idle.
+            _cameraHolders[appKey] = pid;
+            _cameraPoll.Start();
+            return;
+        }
         if (_cameraClients.Keys.Any(s => s.AppKey == appKey)) return; // already counted (apps reconnect often)
 
         var session = new UsageSession
@@ -308,11 +344,17 @@ public sealed class UsageTracker : IDisposable
         _cameraPoll.Start();
     }
 
-    /// <summary>Ends camera-log sessions whose app exited, or all of them once no app uses a camera.</summary>
+    /// <summary>
+    /// Ends camera-log sessions whose app exited, or all of them once no app uses a camera. While an app that
+    /// grabbed the camera when it appeared is still running, the camera being in use doesn't prove anything
+    /// about the others, so their sessions are marked uncertain.
+    /// </summary>
     private async Task CheckCameraClientsAsync()
     {
         if (_cameraChecking) return;
-        if (_cameraClients.Count == 0)
+        foreach (var gone in _cameraHolders.Where(h => !IsRunning(h.Value)).Select(h => h.Key).ToList())
+            _cameraHolders.Remove(gone);
+        if (_cameraClients.Count == 0 && _cameraHolders.Count == 0)
         {
             _cameraPoll.Stop();
             return;
@@ -323,14 +365,25 @@ public sealed class UsageTracker : IDisposable
             bool? inUse = CameraInUse == null ? null : await CameraInUse();
             inUse ??= FrameServerRunning(); // helper unavailable: Frame Server stops when no app needs it
 
+            // Idle: whatever the holders did when the camera appeared, none of them keeps it open.
+            if (inUse == false) _cameraHolders.Clear();
+
             var now = DateTime.UtcNow;
+            bool changed = false;
             var ended = _cameraClients.Where(c => inUse == false || !IsRunning(c.Value)).Select(c => c.Key).ToList();
             foreach (var session in ended)
             {
                 session.End = now;
                 _cameraClients.Remove(session);
+                changed = true;
             }
-            if (ended.Count > 0)
+            if (_cameraHolders.Count > 0)
+                foreach (var session in _cameraClients.Keys.Where(s => !s.Uncertain))
+                {
+                    session.Uncertain = true;
+                    changed = true;
+                }
+            if (changed)
             {
                 _dirty = true;
                 Changed?.Invoke();

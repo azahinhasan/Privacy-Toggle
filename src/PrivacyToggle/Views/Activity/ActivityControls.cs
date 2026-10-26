@@ -296,7 +296,7 @@ public sealed class UsageTrack : TimeElement
 
     public static string Describe(string app, UsageSpan s)
     {
-        string range = s.Live ? $"since {s.Start:t} · in use now" : $"{s.Start:t} – {s.End:t}";
+        string range = s.Live ? $"since {s.Start:t} · {s.LiveWord} now" : $"{s.Start:t} – {s.End:t}";
         if (s.Start.Date != DateTime.Today) range = $"{s.Start:ddd} " + range;
         return $"{app} · {ActivityModel.Name(s.Device)}\n{range} · {ActivityModel.Long(s.Duration)}";
     }

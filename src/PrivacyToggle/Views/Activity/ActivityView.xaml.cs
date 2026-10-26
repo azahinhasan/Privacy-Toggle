@@ -221,7 +221,7 @@ public partial class ActivityView : UserControl
             LastApp.Text = t.LastApp.Name;
             LastApp.ToolTip = t.LastApp.Name;
             LastWhen.Text = $"{ActivityModel.Name(t.LastDevice.Value)} · " +
-                            (t.LastLive ? "in use now" : ActivityModel.Ago(t.LastTime.Value, now));
+                            (t.LastLive ? (t.LastUncertain ? "connected now" : "in use now") : ActivityModel.Ago(t.LastTime.Value, now));
         }
     }
 
@@ -250,7 +250,10 @@ public partial class ActivityView : UserControl
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             bool camera = app.Any(s => s.Device == UsageDevice.Camera);
-            grid.Children.Add(PulsingDot(camera ? "CamUsage" : "MicUsage"));
+            bool uncertain = app.All(s => s.Uncertain);
+            var dot = PulsingDot(camera ? "CamUsage" : "MicUsage");
+            if (uncertain) dot.BeginAnimation(OpacityProperty, null); // steady, not pulsing: not known to be in use
+            grid.Children.Add(dot);
 
             var icon = AppIcon(identity, 24);
             Grid.SetColumn(icon, 1);
@@ -258,7 +261,8 @@ public partial class ActivityView : UserControl
 
             var text = new StackPanel { Margin = new Thickness(10, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
             text.Children.Add(new TextBlock { Text = identity.Name, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = identity.Name });
-            var detail = new TextBlock { Text = identity.Detail, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = identity.Detail };
+            string detailText = uncertain ? "Connected to the camera · may not be using it" : identity.Detail;
+            var detail = new TextBlock { Text = detailText, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = detailText };
             detail.Style = (Style)FindResource("Hint");
             text.Children.Add(detail);
             Grid.SetColumn(text, 2);
@@ -269,7 +273,9 @@ public partial class ActivityView : UserControl
             {
                 var start = s.Start; // already local; after an unmute this is when the app could hear again
                 var chip = Chip(s.Device, ActivityModel.Clock(now - start), out var counter, large: true);
-                chip.ToolTip = $"{ActivityModel.Name(s.Device)} in use since {start:t}";
+                chip.ToolTip = s.Uncertain
+                    ? $"Connected to the camera since {start:t}. Another app keeps the camera busy, so Windows can't tell whether this one is using it."
+                    : $"{ActivityModel.Name(s.Device)} in use since {start:t}";
                 _liveCounters.Add((counter, start));
                 chips.Children.Add(chip);
             }
@@ -383,6 +389,7 @@ public partial class ActivityView : UserControl
         if (a.Live)
         {
             var dot = PulsingDot(a.Spans.Any(s => s.Live && s.Device == UsageDevice.Camera) ? "CamUsage" : "MicUsage");
+            if (a.Spans.Where(s => s.Live).All(s => s.Uncertain)) dot.BeginAnimation(OpacityProperty, null);
             dot.Margin = new Thickness(0, 0, 6, 0);
             dot.VerticalAlignment = VerticalAlignment.Top;
             dot.Margin = new Thickness(0, 5, 6, 0);
@@ -447,7 +454,7 @@ public partial class ActivityView : UserControl
             Grid.SetColumn(when, 1);
             line.Children.Add(when);
 
-            var length = new TextBlock { Text = s.Live ? "in use" : ActivityModel.Long(s.Duration) };
+            var length = new TextBlock { Text = s.Live ? s.LiveWord : ActivityModel.Long(s.Duration) };
             length.Style = (Style)FindResource("Hint");
             length.Margin = new Thickness(12, 0, 0, 0);
             Grid.SetColumn(length, 2);
@@ -516,7 +523,8 @@ public partial class ActivityView : UserControl
         if (a.Spans.Any(s => s.Device == UsageDevice.Camera))
             AddCell(grid, Chip(UsageDevice.Camera, ActivityModel.Short(a.Camera), out _), 3);
 
-        var last = new TextBlock { Text = a.Live ? "in use now" : ActivityModel.Ago(a.LastActive, now), VerticalAlignment = VerticalAlignment.Center };
+        string liveText = a.Spans.Where(s => s.Live).All(s => s.Uncertain) ? "connected now" : "in use now";
+        var last = new TextBlock { Text = a.Live ? liveText : ActivityModel.Ago(a.LastActive, now), VerticalAlignment = VerticalAlignment.Center };
         last.Style = (Style)FindResource("Hint");
         last.VerticalAlignment = VerticalAlignment.Center;
         AddCell(grid, last, 4);
