@@ -8,7 +8,7 @@
 #define AppName "PrivacyToggle"
 ; build.ps1 passes /DAppVersion=<Version from PrivacyToggle.csproj>; this default is only for compiling by hand.
 #ifndef AppVersion
-  #define AppVersion "1.7.0"
+  #define AppVersion "1.6.0"
 #endif
 #define AppExe "PrivacyToggle.exe"
 #define AppId "{8F6B2C1E-4D3A-4B8E-9C5F-2A7D1E3B6C90}"

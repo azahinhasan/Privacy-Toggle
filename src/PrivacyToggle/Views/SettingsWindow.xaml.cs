@@ -396,12 +396,21 @@ public partial class SettingsWindow : Window
     public void ShowTaskbarSpeedSettings()
     {
         ShowPage(PrivacyDevice.Network);
-        // After the page has been laid out, so the section's position is known.
-        Dispatcher.BeginInvoke(() =>
-        {
-            var top = TaskbarSpeedSection.TransformToAncestor(PageNetwork).Transform(new Point(0, 0)).Y;
-            PageNetwork.ScrollToVerticalOffset(PageNetwork.VerticalOffset + top - 12);
-        }, System.Windows.Threading.DispatcherPriority.Loaded);
+        // Once laid out (a window that just opened isn't yet, and the section would seem to be at the top), then
+        // again when everything has settled, in case the page above it grew meanwhile (the adapter list filling in).
+        Dispatcher.BeginInvoke(ScrollToTaskbarSpeed, System.Windows.Threading.DispatcherPriority.Loaded);
+        Dispatcher.BeginInvoke(ScrollToTaskbarSpeed, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private void ScrollToTaskbarSpeed()
+    {
+        if (PageNetwork.Content is not Visual content) return;
+        PageNetwork.UpdateLayout();
+        if (!TaskbarSpeedSection.IsDescendantOf(content)) return; // page not built yet; the second try gets it
+        // Measured within the page's content, not the scroll viewer, whose top padding would scroll the heading
+        // just past the top edge; the heading's own top margin is kept above it.
+        double top = TaskbarSpeedSection.TransformToAncestor(content).Transform(new Point(0, 0)).Y;
+        PageNetwork.ScrollToVerticalOffset(Math.Max(0, top - TaskbarSpeedSection.Margin.Top));
     }
 
     /// <summary>
