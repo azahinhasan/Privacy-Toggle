@@ -192,7 +192,7 @@ public sealed class NetworkUsageService : IDisposable
             {
                 Available = true;
                 Problem = null;
-                Absorb(response.TrafficSession ?? "", response.Traffic, now);
+                Absorb(response.TrafficSession ?? "", response.Traffic, now, response.TrafficRates == true);
             }
             if (_dirty && DateTime.UtcNow - _lastSave > TimeSpan.FromSeconds(30)) Save();
             Changed?.Invoke();
@@ -204,7 +204,7 @@ public sealed class NetworkUsageService : IDisposable
     }
 
     /// <summary>Turns the helper's running totals into per-app additions since the last poll.</summary>
-    private void Absorb(string session, List<ProcessTraffic> traffic, DateTime now)
+    private void Absorb(string session, List<ProcessTraffic> traffic, DateTime now, bool rates)
     {
         // First answer, or the helper restarted: its totals are a new starting point, not new traffic.
         bool baselineOnly = _session != session;
@@ -240,15 +240,27 @@ public sealed class NetworkUsageService : IDisposable
             if (q.Count == 0) _recent.Remove(key);
         }
 
-        // Smoothed rate: the bytes of the last few seconds over those seconds.
-        double window = Smoothing.TotalSeconds;
-        Live = _recent.Select(r =>
-            {
-                var last = r.Value.Where(x => now - x.Time < Smoothing).ToList();
-                return new LiveTraffic(r.Key, last.Sum(x => x.Received) / window, last.Sum(x => x.Sent) / window);
-            })
-            .Where(l => l.DownRate + l.UpRate > 0)
-            .OrderByDescending(l => l.DownRate + l.UpRate).ToList();
+        if (rates)
+        {
+            // The helper's speeds come from the packets' own timestamps: steady while an app's rate is steady,
+            // and 0 as soon as it stops.
+            Live = traffic.Where(p => p.DownRate + p.UpRate > 0)
+                .GroupBy(AppKey)
+                .Select(g => new LiveTraffic(g.Key, g.Sum(p => p.DownRate), g.Sum(p => p.UpRate)))
+                .OrderByDescending(l => l.DownRate + l.UpRate).ToList();
+        }
+        else
+        {
+            // An older helper: estimate from the bytes of the last few polls (jumpier, and slower to reach 0).
+            double window = Smoothing.TotalSeconds;
+            Live = _recent.Select(r =>
+                {
+                    var last = r.Value.Where(x => now - x.Time < Smoothing).ToList();
+                    return new LiveTraffic(r.Key, last.Sum(x => x.Received) / window, last.Sum(x => x.Sent) / window);
+                })
+                .Where(l => l.DownRate + l.UpRate > 0)
+                .OrderByDescending(l => l.DownRate + l.UpRate).ToList();
+        }
 
         if (deltas.Count == 0) return;
         long slot = Unix(now) / SlotSeconds * SlotSeconds;

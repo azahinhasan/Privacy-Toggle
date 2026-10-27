@@ -10,22 +10,40 @@ namespace PrivacyToggle.Services;
 /// </summary>
 public sealed class NetSpeedMeter
 {
-    private long _lastIn, _lastOut;
-    private readonly Stopwatch _clock = new();
+    /// <summary>Speeds average this long, by the clock rather than by how many samples arrived.</summary>
+    private const double Window = 3;
 
-    /// <summary>Bytes per second since the previous call (the first call returns 0, 0).</summary>
+    /// <summary>Below this the latest second counts as stopped, and the speed shows that right away.</summary>
+    private const double Idle = 1024;
+
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly Queue<(double Time, long In, long Out)> _samples = new();
+
+    /// <summary>
+    /// Bytes per second down and up: total bytes over the last ~3 seconds divided by the exact time they took, so a
+    /// steady download reads steady even if this is called a little early or late. If the latest interval had
+    /// (almost) nothing, that's returned instead, so a stopped download reads 0 at once. The first call returns 0, 0.
+    /// </summary>
     public (double Down, double Up) Sample()
     {
         var (bytesIn, bytesOut) = Totals();
-        double seconds = _clock.Elapsed.TotalSeconds;
-        bool first = !_clock.IsRunning;
-        _clock.Restart();
+        double now = _clock.Elapsed.TotalSeconds;
 
-        // Counters drop when an adapter is turned off or unplugged; treat that as a fresh start, not negative speed.
-        double down = first || seconds <= 0 || bytesIn < _lastIn ? 0 : (bytesIn - _lastIn) / seconds;
-        double up = first || seconds <= 0 || bytesOut < _lastOut ? 0 : (bytesOut - _lastOut) / seconds;
-        (_lastIn, _lastOut) = (bytesIn, bytesOut);
-        return (down, up);
+        // Counters drop when an adapter is turned off or unplugged: start over rather than show a negative speed.
+        if (_samples.Count > 0 && (bytesIn < _samples.Last().In || bytesOut < _samples.Last().Out)) _samples.Clear();
+        _samples.Enqueue((now, bytesIn, bytesOut));
+        while (_samples.Count > 2 && now - _samples.Peek().Time > Window + 0.5) _samples.Dequeue();
+        if (_samples.Count < 2) return (0, 0);
+
+        var all = _samples.ToArray();
+        var (prevTime, prevIn, prevOut) = all[^2];
+        double step = now - prevTime;
+        if (step > 0 && (bytesIn - prevIn + bytesOut - prevOut) / step < Idle)
+            return ((bytesIn - prevIn) / step, (bytesOut - prevOut) / step);
+
+        var (firstTime, firstIn, firstOut) = all[0];
+        double span = now - firstTime;
+        return span <= 0 ? (0, 0) : ((bytesIn - firstIn) / span, (bytesOut - firstOut) / span);
     }
 
     /// <summary>Total bytes received and sent by the hardware network adapters that are up.</summary>

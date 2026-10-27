@@ -44,7 +44,22 @@ internal static class NetworkTraffic
         public string? Services;
         public long Sent, Received;
         public DateTime? GoneSince; // the process exited; dropped a minute later
+
+        // Bytes per second of event time (ring of RateSeconds slots), for steady, exact speeds.
+        public readonly long[] SecondOf = new long[RateSeconds], SentIn = new long[RateSeconds], ReceivedIn = new long[RateSeconds];
     }
+
+    /// <summary>Seconds of per-second history kept per process (enough for the averaging window plus delivery delay).</summary>
+    private const int RateSeconds = 8;
+
+    /// <summary>Speeds average this many whole seconds: steady for a steady download, without hiding changes for long.</summary>
+    private const int AverageSeconds = 3;
+
+    /// <summary>
+    /// Events reach us in batches up to about a second late, so the current and previous second are still filling up;
+    /// speeds use the seconds before them.
+    /// </summary>
+    private const int SettleSeconds = 2;
 
     public static void Start()
     {
@@ -123,8 +138,35 @@ internal static class NetworkTraffic
             foreach (var gone in counters.Where(c => c.GoneSince is { } t && now - t > TimeSpan.FromMinutes(1)))
                 if (ByPid.TryGetValue(gone.Pid, out var current) && current == gone) ByPid.Remove(gone.Pid);
 
-        return counters.Select(c => new ProcessTraffic(c.Serial, c.Pid, c.App,
-            string.IsNullOrEmpty(c.Services) ? null : c.Services, Interlocked.Read(ref c.Sent), Interlocked.Read(ref c.Received))).ToList();
+        long second = now.ToFileTimeUtc() / TimeSpan.TicksPerSecond;
+        return counters.Select(c =>
+        {
+            var (down, up) = Rates(c, second);
+            return new ProcessTraffic(c.Serial, c.Pid, c.App, string.IsNullOrEmpty(c.Services) ? null : c.Services,
+                Interlocked.Read(ref c.Sent), Interlocked.Read(ref c.Received), down, up);
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Bytes per second down and up, from the event timestamps: the average of the last <see cref="AverageSeconds"/>
+    /// settled seconds, so a download held at 30 Mbps reads 30 rather than jumping with how the events were batched.
+    /// The moment a settled second has no traffic the speed is 0, so a stopped download doesn't linger.
+    /// </summary>
+    private static (double Down, double Up) Rates(Counter c, long now)
+    {
+        lock (c)
+        {
+            long newest = now - SettleSeconds;
+            long In(long[] bytes, long s) => c.SecondOf[(int)(s % RateSeconds)] == s ? bytes[(int)(s % RateSeconds)] : 0;
+            if (In(c.ReceivedIn, newest) + In(c.SentIn, newest) == 0) return (0, 0);
+            long down = 0, up = 0;
+            for (long s = newest - AverageSeconds + 1; s <= newest; s++)
+            {
+                down += In(c.ReceivedIn, s);
+                up += In(c.SentIn, s);
+            }
+            return (down / (double)AverageSeconds, up / (double)AverageSeconds);
+        }
     }
 
     private static void OnEvent(IntPtr record)
@@ -157,6 +199,21 @@ internal static class NetworkTraffic
             }
             if (send) Interlocked.Add(ref counter.Sent, size);
             else Interlocked.Add(ref counter.Received, size);
+
+            // File the bytes under the second the packet was logged (EVENT_HEADER.TimeStamp, FILETIME), not when the
+            // batch happened to reach us: that's what keeps the speed steady.
+            long second = Marshal.ReadInt64(record, 16) / TimeSpan.TicksPerSecond;
+            int slot = (int)(second % RateSeconds);
+            lock (counter)
+            {
+                if (counter.SecondOf[slot] != second)
+                {
+                    counter.SecondOf[slot] = second;
+                    counter.SentIn[slot] = counter.ReceivedIn[slot] = 0;
+                }
+                if (send) counter.SentIn[slot] += size;
+                else counter.ReceivedIn[slot] += size;
+            }
         }
         catch
         {
@@ -187,8 +244,13 @@ internal static class NetworkTraffic
         IntPtr p = Marshal.AllocHGlobal(size);
         for (int i = 0; i < size; i++) Marshal.WriteByte(p, i, 0);
         Marshal.WriteInt32(p, 0, size);                        // Wnode.BufferSize
-        Marshal.WriteInt32(p, 40, 1);                          // Wnode.ClientContext: QPC timestamps
+        Marshal.WriteInt32(p, 40, 1);                          // Wnode.ClientContext: QPC (ProcessTrace hands us FILETIME)
         Marshal.WriteInt32(p, 44, WNODE_FLAG_TRACED_GUID);     // Wnode.Flags
+        // Roomy buffers (KB each, and how many): a fast download logs thousands of events a second, and small
+        // default buffers delay or drop them, which made speeds lag and read low.
+        Marshal.WriteInt32(p, 48, 256);                        // BufferSize
+        Marshal.WriteInt32(p, 52, 16);                         // MinimumBuffers
+        Marshal.WriteInt32(p, 56, 64);                         // MaximumBuffers
         Marshal.WriteInt32(p, 64, EVENT_TRACE_REAL_TIME_MODE); // LogFileMode
         Marshal.WriteInt32(p, 68, 1);                          // FlushTimer: deliver at least every second
         Marshal.WriteInt32(p, 116, PropertiesSize);            // LoggerNameOffset

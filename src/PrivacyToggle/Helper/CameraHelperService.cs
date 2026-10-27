@@ -182,6 +182,7 @@ public sealed class CameraHelperService : ServiceBase
                 response.Traffic = NetworkTraffic.Snapshot();
                 response.TrafficSession = NetworkTraffic.SessionId;
                 response.TrafficError = NetworkTraffic.Error;
+                response.TrafficRates = true;
                 return response;
             }
 

@@ -28,9 +28,11 @@ public sealed record NetworkAdapter(string Id, string Name, string Alias, Networ
 /// <summary>
 /// One process's network totals since the helper started counting it. <see cref="Serial"/> is unique per
 /// process lifetime (a reused process id gets a new one). <see cref="App"/> is the exe path, or "System";
-/// <see cref="Services"/> names the Windows services hosted in a svchost process.
+/// <see cref="Services"/> names the Windows services hosted in a svchost process. <see cref="DownRate"/> and
+/// <see cref="UpRate"/> are its current speed in bytes per second, from the packets' own timestamps.
 /// </summary>
-public sealed record ProcessTraffic(long Serial, int Pid, string App, string? Services, long Sent, long Received);
+public sealed record ProcessTraffic(long Serial, int Pid, string App, string? Services, long Sent, long Received,
+    double DownRate = 0, double UpRate = 0);
 
 /// <summary>A program that held a camera open and refused to let Windows turn it off.</summary>
 public sealed class BlockerInfo
@@ -83,4 +85,7 @@ public sealed class CameraResponse
     public List<ProcessTraffic>? Traffic { get; set; }
     public string? TrafficSession { get; set; }
     public string? TrafficError { get; set; }
+
+    /// <summary>Set by helpers that fill <see cref="ProcessTraffic.DownRate"/>/<see cref="ProcessTraffic.UpRate"/> (1.7 and later).</summary>
+    public bool? TrafficRates { get; set; }
 }
