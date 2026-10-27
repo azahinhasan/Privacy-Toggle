@@ -38,7 +38,7 @@ public static class Program
         // Mbps, to compare with what an app such as Steam reports; then the totals.
         if (Has("--network-usage"))
         {
-            NetworkTraffic.Start();
+            NetworkTraffic.Start("PrivacyToggle-NetworkUsage-Diagnostic"); // its own session: the helper's keeps running
             if (NetworkTraffic.Error != null) { Console.WriteLine(NetworkTraffic.Error); return 1; }
             for (int i = 0; i < 20; i++)
             {

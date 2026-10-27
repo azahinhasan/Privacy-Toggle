@@ -28,7 +28,7 @@ public sealed class CameraHelperService : ServiceBase
     {
         _cts = new CancellationTokenSource();
         _loop = Task.Run(() => ServeAsync(_cts.Token));
-        Task.Run(NetworkTraffic.Start); // counting network use per app (Network page)
+        Task.Run(() => NetworkTraffic.Start()); // counting network use per app (Network page)
     }
 
     protected override void OnStop()

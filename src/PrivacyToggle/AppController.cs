@@ -771,7 +771,8 @@ public sealed class AppController : IDisposable
         {
             if (_taskbarSpeed == null)
             {
-                _taskbarSpeed = new TaskbarSpeedWindow(S.TaskbarSpeedShow);
+                // The same speed the Activity page shows, when the helper can count it; else Windows' own counters.
+                _taskbarSpeed = new TaskbarSpeedWindow(S.TaskbarSpeedShow, () => NetworkUsage?.LiveTotal);
                 _taskbarSpeed.Clicked += () =>
                 {
                     ShowSettings();

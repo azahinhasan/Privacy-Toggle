@@ -66,6 +66,13 @@ public sealed class NetworkUsageService : IDisposable
     /// <summary>Apps that moved any data in the last few seconds, fastest first.</summary>
     public IReadOnlyList<LiveTraffic> Live { get; private set; } = Array.Empty<LiveTraffic>();
 
+    /// <summary>
+    /// The whole PC's speed in bytes per second (the sum of <see cref="Live"/>), or null when the helper can't give
+    /// exact per-app speeds. It's the data apps move, the same figure downloaders like Steam or IDM show; Windows'
+    /// adapter counters read ~4–5% higher, as they also count the network's own packet headers.
+    /// </summary>
+    public (double Down, double Up)? LiveTotal { get; private set; }
+
     /// <summary>Raised on the UI thread after every poll (every second).</summary>
     public event Action? Changed;
 
@@ -194,6 +201,9 @@ public sealed class NetworkUsageService : IDisposable
                 Problem = null;
                 Absorb(response.TrafficSession ?? "", response.Traffic, now, response.TrafficRates == true);
             }
+            LiveTotal = Available && response?.TrafficRates == true
+                ? (Live.Sum(l => l.DownRate), Live.Sum(l => l.UpRate))
+                : null;
             if (_dirty && DateTime.UtcNow - _lastSave > TimeSpan.FromSeconds(30)) Save();
             Changed?.Invoke();
         }

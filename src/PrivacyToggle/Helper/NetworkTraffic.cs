@@ -45,31 +45,42 @@ internal static class NetworkTraffic
         public long Sent, Received;
         public DateTime? GoneSince; // the process exited; dropped a minute later
 
-        // Bytes per second of event time (ring of RateSeconds slots), for steady, exact speeds.
-        public readonly long[] SecondOf = new long[RateSeconds], SentIn = new long[RateSeconds], ReceivedIn = new long[RateSeconds];
+        // Bytes per quarter second of event time (ring of RateSlots), for steady, exact speeds.
+        public readonly long[] SlotOf = new long[RateSlots], SentIn = new long[RateSlots], ReceivedIn = new long[RateSlots];
     }
 
-    /// <summary>Seconds of per-second history kept per process (enough for the averaging window plus delivery delay).</summary>
-    private const int RateSeconds = 8;
+    /// <summary>Speeds are counted in quarter seconds of the packets' own timestamps.</summary>
+    private const long SlotTicks = TimeSpan.TicksPerSecond / 4;
 
-    /// <summary>Speeds average this many whole seconds: steady for a steady download, without hiding changes for long.</summary>
-    private const int AverageSeconds = 3;
+    /// <summary>Quarter seconds of history kept per process (the averaging window plus delivery delay, with room).</summary>
+    private const int RateSlots = 32;
+
+    /// <summary>Speeds average the last 3 seconds: steady for a steady download, without hiding changes for long.</summary>
+    private const int AverageSlots = 12;
 
     /// <summary>
-    /// Events reach us in batches up to about a second late, so the current and previous second are still filling up;
-    /// speeds use the seconds before them.
+    /// Windows is asked to hand over its buffered events every <see cref="FlushInterval"/>, so everything older than
+    /// half a second has arrived; speeds use the quarter seconds before that. (Without asking, events arrived up to a
+    /// second late, and speeds had to wait 2 seconds, which put them noticeably behind the taskbar's.)
     /// </summary>
-    private const int SettleSeconds = 2;
+    private const int SettleSlots = 2;
 
-    public static void Start()
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(250);
+    private static Timer? _flushTimer;
+
+    /// <summary>The trace session's name: the helper's own, or another so a diagnostic run doesn't stop the helper's.</summary>
+    private static string _sessionName = SessionName;
+
+    public static void Start(string? sessionName = null)
     {
         try
         {
+            _sessionName = sessionName ?? SessionName;
             StopSession(); // one left over from a crash would block starting a new one
             var props = NewProperties();
             try
             {
-                uint rc = StartTrace(out _session, SessionName, props);
+                uint rc = StartTrace(out _session, _sessionName, props);
                 if (rc != 0) { Error = $"Couldn't start network counting (error {rc})."; return; }
             }
             finally { Marshal.FreeHGlobal(props); }
@@ -80,7 +91,7 @@ internal static class NetworkTraffic
             if (enable != 0) { Error = $"Couldn't turn on network counting (error {enable})."; StopSession(); return; }
 
             _callback = OnEvent;
-            _loggerName = Marshal.StringToHGlobalUni(SessionName);
+            _loggerName = Marshal.StringToHGlobalUni(_sessionName);
             var logfile = new EVENT_TRACE_LOGFILE
             {
                 LoggerName = _loggerName,
@@ -96,6 +107,7 @@ internal static class NetworkTraffic
                 Name = "NetworkTraffic",
             };
             _thread.Start();
+            _flushTimer = new Timer(_ => Flush(), null, FlushInterval, FlushInterval);
             Error = null;
         }
         catch (Exception ex)
@@ -106,6 +118,8 @@ internal static class NetworkTraffic
 
     public static void Stop()
     {
+        _flushTimer?.Dispose();
+        _flushTimer = null;
         if (_trace != InvalidTrace) CloseTrace(_trace);
         _trace = InvalidTrace;
         StopSession();
@@ -138,35 +152,49 @@ internal static class NetworkTraffic
             foreach (var gone in counters.Where(c => c.GoneSince is { } t && now - t > TimeSpan.FromMinutes(1)))
                 if (ByPid.TryGetValue(gone.Pid, out var current) && current == gone) ByPid.Remove(gone.Pid);
 
-        long second = now.ToFileTimeUtc() / TimeSpan.TicksPerSecond;
+        long slot = now.ToFileTimeUtc() / SlotTicks;
         return counters.Select(c =>
         {
-            var (down, up) = Rates(c, second);
+            var (down, up) = Rates(c, slot);
             return new ProcessTraffic(c.Serial, c.Pid, c.App, string.IsNullOrEmpty(c.Services) ? null : c.Services,
                 Interlocked.Read(ref c.Sent), Interlocked.Read(ref c.Received), down, up);
         }).ToList();
     }
 
     /// <summary>
-    /// Bytes per second down and up, from the event timestamps: the average of the last <see cref="AverageSeconds"/>
-    /// settled seconds, so a download held at 30 Mbps reads 30 rather than jumping with how the events were batched.
-    /// The moment a settled second has no traffic the speed is 0, so a stopped download doesn't linger.
+    /// Bytes per second down and up, from the event timestamps: the average of the last 3 settled seconds, so a
+    /// download held at 30 Mbps reads 30 rather than jumping with how the events were batched. The moment a whole
+    /// settled second has no traffic the speed is 0, so a stopped download doesn't linger.
     /// </summary>
     private static (double Down, double Up) Rates(Counter c, long now)
     {
         lock (c)
         {
-            long newest = now - SettleSeconds;
-            long In(long[] bytes, long s) => c.SecondOf[(int)(s % RateSeconds)] == s ? bytes[(int)(s % RateSeconds)] : 0;
-            if (In(c.ReceivedIn, newest) + In(c.SentIn, newest) == 0) return (0, 0);
+            long newest = now - SettleSlots;
+            long In(long[] bytes, long s) => c.SlotOf[(int)(s % RateSlots)] == s ? bytes[(int)(s % RateSlots)] : 0;
+            long lastSecond = 0;
+            for (long s = newest - 3; s <= newest; s++) lastSecond += In(c.ReceivedIn, s) + In(c.SentIn, s);
+            if (lastSecond == 0) return (0, 0);
             long down = 0, up = 0;
-            for (long s = newest - AverageSeconds + 1; s <= newest; s++)
+            for (long s = newest - AverageSlots + 1; s <= newest; s++)
             {
                 down += In(c.ReceivedIn, s);
                 up += In(c.SentIn, s);
             }
-            return (down / (double)AverageSeconds, up / (double)AverageSeconds);
+            double seconds = AverageSlots * SlotTicks / (double)TimeSpan.TicksPerSecond;
+            return (down / seconds, up / seconds);
         }
+    }
+
+    /// <summary>Has Windows hand over the events it has buffered so far, so speeds are current.</summary>
+    private static void Flush()
+    {
+        ulong session = _session;
+        if (session == 0) return;
+        var props = NewProperties();
+        try { ControlTrace(session, null, props, EVENT_TRACE_CONTROL_FLUSH); }
+        catch { }
+        finally { Marshal.FreeHGlobal(props); }
     }
 
     private static void OnEvent(IntPtr record)
@@ -200,15 +228,15 @@ internal static class NetworkTraffic
             if (send) Interlocked.Add(ref counter.Sent, size);
             else Interlocked.Add(ref counter.Received, size);
 
-            // File the bytes under the second the packet was logged (EVENT_HEADER.TimeStamp, FILETIME), not when the
-            // batch happened to reach us: that's what keeps the speed steady.
-            long second = Marshal.ReadInt64(record, 16) / TimeSpan.TicksPerSecond;
-            int slot = (int)(second % RateSeconds);
+            // File the bytes under the quarter second the packet was logged (EVENT_HEADER.TimeStamp, FILETIME), not
+            // when the batch happened to reach us: that's what keeps the speed steady.
+            long quarter = Marshal.ReadInt64(record, 16) / SlotTicks;
+            int slot = (int)(quarter % RateSlots);
             lock (counter)
             {
-                if (counter.SecondOf[slot] != second)
+                if (counter.SlotOf[slot] != quarter)
                 {
-                    counter.SecondOf[slot] = second;
+                    counter.SlotOf[slot] = quarter;
                     counter.SentIn[slot] = counter.ReceivedIn[slot] = 0;
                 }
                 if (send) counter.SentIn[slot] += size;
@@ -232,7 +260,7 @@ internal static class NetworkTraffic
     private static void StopSession()
     {
         var props = NewProperties();
-        try { ControlTrace(0, SessionName, props, EVENT_TRACE_CONTROL_STOP); }
+        try { ControlTrace(0, _sessionName, props, EVENT_TRACE_CONTROL_STOP); }
         finally { Marshal.FreeHGlobal(props); }
         _session = 0;
     }
@@ -262,7 +290,7 @@ internal static class NetworkTraffic
     private const int PropertiesSize = 120; // sizeof(EVENT_TRACE_PROPERTIES) on x64
     private const int WNODE_FLAG_TRACED_GUID = 0x20000;
     private const int EVENT_TRACE_REAL_TIME_MODE = 0x100;
-    private const uint EVENT_TRACE_CONTROL_STOP = 1;
+    private const uint EVENT_TRACE_CONTROL_STOP = 1, EVENT_TRACE_CONTROL_FLUSH = 3;
     private const uint EVENT_CONTROL_CODE_ENABLE_PROVIDER = 1;
     private const byte TRACE_LEVEL_INFORMATION = 4;
     private const uint PROCESS_TRACE_MODE_REAL_TIME = 0x100, PROCESS_TRACE_MODE_EVENT_RECORD = 0x10000000;
@@ -284,7 +312,7 @@ internal static class NetworkTraffic
     private static extern uint StartTrace(out ulong sessionHandle, string sessionName, IntPtr properties);
 
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
-    private static extern uint ControlTrace(ulong sessionHandle, string sessionName, IntPtr properties, uint controlCode);
+    private static extern uint ControlTrace(ulong sessionHandle, string? sessionName, IntPtr properties, uint controlCode);
 
     [DllImport("advapi32.dll")]
     private static extern uint EnableTraceEx2(ulong sessionHandle, ref Guid providerId, uint controlCode, byte level,

@@ -22,6 +22,7 @@ public partial class TaskbarSpeedWindow : Window
     private static readonly Brush LightText = Frozen(Colors.White), DarkText = Frozen(Color.FromRgb(0x11, 0x11, 0x11));
 
     private readonly NetSpeedMeter _meter = new();
+    private readonly Func<(double Down, double Up)?> _exactSpeed;
     private readonly DispatcherTimer _timer;
     private readonly DispatcherTimer _placeTimer; // fast, so it follows an auto-hiding taskbar sliding in and out
     private readonly WinEventProc _onForeground, _onTaskbarMoved; // kept alive: Windows calls them
@@ -34,8 +35,10 @@ public partial class TaskbarSpeedWindow : Window
     private IntPtr _hwnd;
     private TaskbarSpeedShow _show;
 
-    public TaskbarSpeedWindow(TaskbarSpeedShow show)
+    /// <param name="exactSpeed">The data rate apps move, as the Activity page shows it (null while unavailable).</param>
+    public TaskbarSpeedWindow(TaskbarSpeedShow show, Func<(double Down, double Up)?> exactSpeed)
     {
+        _exactSpeed = exactSpeed;
         InitializeComponent();
         SetShow(show);
         DownText.Text = UpText.Text = " ";
@@ -130,7 +133,10 @@ public partial class TaskbarSpeedWindow : Window
 
     private void Tick()
     {
-        var (down, up) = _meter.Sample();
+        // Windows' adapter counters are always sampled, so they're ready the moment the exact speed isn't. They
+        // also count packet headers (~4–5% more), so they'd read a little above the Activity page and downloaders.
+        var counted = _meter.Sample();
+        var (down, up) = _exactSpeed() ?? counted;
         _down = down;
         _up = up;
         ShowSpeeds();
