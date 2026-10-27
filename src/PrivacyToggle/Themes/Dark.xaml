@@ -48,8 +48,27 @@
     <SolidColorBrush x:Key="MutedFill" Color="#FF8A8A" />
     <SolidColorBrush x:Key="NoneFill" Color="#5A5A55" />
 
-    <!-- devices (Activity) -->
-    <SolidColorBrush x:Key="CamUsage" Color="#FF7AC6" />
-    <SolidColorBrush x:Key="MicUsage" Color="#6EA8FF" />
+    <!-- devices (Activity): fill, and text placed on that fill -->
+    <SolidColorBrush x:Key="CamUsage" Color="#F497C4" />
+    <SolidColorBrush x:Key="MicUsage" Color="#7FB2FF" />
+    <SolidColorBrush x:Key="NetUsage" Color="#5FD3B0" />
+    <SolidColorBrush x:Key="CamOnText" Color="#3D1028" />
+    <SolidColorBrush x:Key="MicOnText" Color="#10203D" />
+    <SolidColorBrush x:Key="NetOnText" Color="#0F2A21" />
     <SolidColorBrush x:Key="BadgeText" Color="#111111" />
+
+    <!-- Activity page: download = network teal, upload = soft orange -->
+    <SolidColorBrush x:Key="DownloadText" Color="#5FD3B0" />
+    <SolidColorBrush x:Key="UploadText" Color="#F0A35E" />
+    <SolidColorBrush x:Key="AccentSoft" Color="#F0A35E" />
+    <SolidColorBrush x:Key="PanelBg" Color="#252421" />
+    <SolidColorBrush x:Key="TrackBg" Color="#2F2D29" />
+    <SolidColorBrush x:Key="LiveZoneBg" Color="#2E2A24" />
+    <SolidColorBrush x:Key="IdleBorder" Color="#4A463F" />
+    <SolidColorBrush x:Key="SectionDivider" Color="#3C3934" />
+    <SolidColorBrush x:Key="RowLine" Color="#34312C" />
+    <SolidColorBrush x:Key="PillOffBg" Color="#3A3630" />
+    <SolidColorBrush x:Key="PillOffText" Color="#D6CDBF" />
+    <SolidColorBrush x:Key="StatusOn" Color="#7FD99A" />
+    <SolidColorBrush x:Key="StatusOff" Color="#F07A7A" />
 </ResourceDictionary>

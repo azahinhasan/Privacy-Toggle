@@ -3,6 +3,9 @@ using System.Windows.Input;
 
 namespace PrivacyToggle.Models;
 
+/// <summary>The things PrivacyToggle switches: what a shortcut, a badge or an alert is about.</summary>
+public enum PrivacyDevice { Microphone, Camera, Network }
+
 /// <summary>
 /// A key combination such as Ctrl+Alt+M. Modifiers are "Ctrl", "Alt", "Shift", "Win";
 /// Key is a WPF <see cref="System.Windows.Input.Key"/> name.
@@ -14,6 +17,14 @@ public sealed class HotkeySetting
 
     public static HotkeySetting Default => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "M" };
     public static HotkeySetting CameraDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "V" };
+    public static HotkeySetting NetworkDefault => new() { Modifiers = new() { "Ctrl", "Alt" }, Key = "N" };
+
+    public static HotkeySetting DefaultFor(PrivacyDevice target) => target switch
+    {
+        PrivacyDevice.Camera => CameraDefault,
+        PrivacyDevice.Network => NetworkDefault,
+        _ => Default,
+    };
 
     [JsonIgnore] public bool Ctrl => Has("Ctrl");
     [JsonIgnore] public bool Alt => Has("Alt");

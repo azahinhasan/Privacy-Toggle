@@ -22,6 +22,10 @@
                         <Rectangle Fill="#111111" Width="13" Height="11" RadiusX="2.5" RadiusY="2.5" Canvas.Left="2" Canvas.Top="6.5" />
                         <Path Fill="#111111" Data="M16,10.5 L22,7 V17 L16,13.5 Z" />
                     </Canvas>
+                    <Canvas x:Name="NetIcon">
+                        <Path Stroke="#111111" StrokeThickness="2.3"
+                              Data="M3.5,12 a8.5,8.5 0 1 0 17,0 a8.5,8.5 0 1 0 -17,0 M8.5,12 a3.5,8.5 0 1 0 7,0 a3.5,8.5 0 1 0 -7,0 M3.5,12 h17" />
+                    </Canvas>
                     <Canvas x:Name="Slash">
                         <Path x:Name="SlashGap" Stroke="#FF6B6B" StrokeThickness="5" Data="M4,4 L20,20" />
                         <Path Stroke="#111111" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,4 L20,20" />

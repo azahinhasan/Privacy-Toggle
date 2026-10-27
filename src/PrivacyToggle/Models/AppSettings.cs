@@ -12,6 +12,9 @@ public enum ThemeMode { System, Light, Dark }
 /// <summary>How a switch is announced: a Windows notification, or a short-lived badge in a screen corner.</summary>
 public enum NotifyStyle { Windows, Badge }
 
+/// <summary>Which speeds the taskbar shows.</summary>
+public enum TaskbarSpeedShow { Both, Download, Upload }
+
 public sealed class AppSettings
 {
     public bool StartWithWindows { get; set; }
@@ -30,10 +33,11 @@ public sealed class AppSettings
 
     public bool PlaySound { get; set; } = true;
     // ---- alerts, per device ----
-    public bool MicNotify { get; set; }
-    public bool CamNotify { get; set; }
-    public NotifyStyle MicNotifyStyle { get; set; } = NotifyStyle.Windows;
-    public NotifyStyle CamNotifyStyle { get; set; } = NotifyStyle.Windows;
+    // New installs announce every switch with a corner badge; saved settings keep their own choice.
+    public bool MicNotify { get; set; } = true;
+    public bool CamNotify { get; set; } = true;
+    public NotifyStyle MicNotifyStyle { get; set; } = NotifyStyle.Badge;
+    public NotifyStyle CamNotifyStyle { get; set; } = NotifyStyle.Badge;
     public OverlayCorner MicNotifyCorner { get; set; } = OverlayCorner.TopRight;
     public OverlayCorner CamNotifyCorner { get; set; } = OverlayCorner.TopRight;
     public bool MicOverlay { get; set; }
@@ -64,4 +68,28 @@ public sealed class AppSettings
     public bool EnforceCameraOff { get; set; } = true;
     public bool ShowCameraTrayIcon { get; set; } = true;
     public bool ShowMicTrayIcon { get; set; } = true;
+
+    // ---- network ----
+    public HotkeySetting NetworkHotkey { get; set; } = HotkeySetting.NetworkDefault;
+    public CameraStartState NetworkOnStartState { get; set; } = CameraStartState.KeepLast;
+
+    /// <summary>Null until the network was first switched; KeepLast then simply follows the adapters.</summary>
+    public bool? LastNetworkOff { get; set; }
+
+    public DeviceMode NetworkDeviceMode { get; set; } = DeviceMode.All;
+    public List<string> SelectedNetworkIds { get; set; } = new();
+    public bool EnforceNetworkOff { get; set; } = true;
+
+    /// <summary>Off by default: the network switch is new, so existing users don't get a third icon unasked.</summary>
+    public bool ShowNetworkTrayIcon { get; set; }
+
+    public bool NetNotify { get; set; } = true;
+    public NotifyStyle NetNotifyStyle { get; set; } = NotifyStyle.Badge;
+    public OverlayCorner NetNotifyCorner { get; set; } = OverlayCorner.TopRight;
+    public bool NetOverlay { get; set; }
+    public OverlayCorner NetOverlayCorner { get; set; } = OverlayCorner.TopRight;
+
+    /// <summary>Show the current download/upload speed on the taskbar, next to the tray.</summary>
+    public bool TaskbarSpeed { get; set; } = true;
+    public TaskbarSpeedShow TaskbarSpeedShow { get; set; } = TaskbarSpeedShow.Both;
 }

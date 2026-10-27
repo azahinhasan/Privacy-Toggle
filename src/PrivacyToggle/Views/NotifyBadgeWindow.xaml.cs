@@ -49,10 +49,11 @@ public partial class NotifyBadgeWindow : Window
     /// <paramref name="offset"/> pushes it away from the corner, e.g. below a MIC OFF badge already there.
     /// </summary>
     /// <param name="off">True: device is off/muted. False: on/live. Null: no device found.</param>
-    public void Flash(bool camera, bool? off, string text, OverlayCorner corner, double offset)
+    public void Flash(PrivacyDevice device, bool? off, string text, OverlayCorner corner, double offset)
     {
-        MicIcon.Visibility = camera ? Visibility.Collapsed : Visibility.Visible;
-        CamIcon.Visibility = camera ? Visibility.Visible : Visibility.Collapsed;
+        MicIcon.Visibility = device == PrivacyDevice.Microphone ? Visibility.Visible : Visibility.Collapsed;
+        CamIcon.Visibility = device == PrivacyDevice.Camera ? Visibility.Visible : Visibility.Collapsed;
+        NetIcon.Visibility = device == PrivacyDevice.Network ? Visibility.Visible : Visibility.Collapsed;
         Slash.Visibility = off == false ? Visibility.Collapsed : Visibility.Visible;
         var brush = off switch { true => OffBrush, false => OnBrush, null => NoneBrush };
         Badge.Background = brush;

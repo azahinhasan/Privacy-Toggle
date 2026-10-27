@@ -28,6 +28,30 @@ public static class Program
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(CameraDevices.List(), CameraProtocol.Json));
             return 0;
         }
+        // Diagnostics: prints the network adapters the helper would control (works without admin).
+        if (Has("--list-adapters"))
+        {
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(NetworkAdapters.List(), CameraProtocol.Json));
+            return 0;
+        }
+        // Diagnostics (needs admin, like the helper): the busiest apps' speed every second for 20 seconds, in MB/s and
+        // Mbps, to compare with what an app such as Steam reports; then the totals.
+        if (Has("--network-usage"))
+        {
+            NetworkTraffic.Start("PrivacyToggle-NetworkUsage-Diagnostic"); // its own session: the helper's keeps running
+            if (NetworkTraffic.Error != null) { Console.WriteLine(NetworkTraffic.Error); return 1; }
+            for (int i = 0; i < 20; i++)
+            {
+                Thread.Sleep(1000);
+                var top = NetworkTraffic.Snapshot().Where(p => p.DownRate + p.UpRate > 0).OrderByDescending(p => p.DownRate + p.UpRate).Take(3);
+                Console.WriteLine($"{i + 1,2}s  " + string.Join("   ", top.Select(p =>
+                    $"{System.IO.Path.GetFileNameWithoutExtension(p.App)} ↓ {p.DownRate / 1048576:0.00} MB/s ({p.DownRate * 8 / 1_000_000:0.0} Mbps) ↑ {p.UpRate / 1024:0} KB/s")));
+            }
+            foreach (var p in NetworkTraffic.Snapshot().OrderByDescending(p => p.Sent + p.Received).Take(15))
+                Console.WriteLine($"{p.Received / 1024,10:N0} KB down {p.Sent / 1024,10:N0} KB up  {p.Pid,6}  {p.App} {p.Services}");
+            NetworkTraffic.Stop();
+            return 0;
+        }
         // Diagnostics: whether an app is using a camera through Frame Server (needs admin, like the helper).
         if (Has("--camera-in-use"))
         {

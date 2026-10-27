@@ -8,7 +8,10 @@ using System.Windows.Media.Imaging;
 
 namespace PrivacyToggle.Views;
 
-/// <summary>Friendly name and icon for a usage-store app key ("np:C:\…\app.exe" or "pkg:Publisher.App_hash").</summary>
+/// <summary>
+/// Friendly name and icon for a usage-store app key: "np:C:\…\app.exe", "pkg:Publisher.App_hash", and for
+/// network use "sys:System" (Windows itself) or "svc:Windows Update, …" (Windows services in a svchost process).
+/// </summary>
 public sealed record AppIdentity(string Key, string Name, string Detail, ImageSource? Icon)
 {
     private static readonly Dictionary<string, AppIdentity> Cache = new(StringComparer.OrdinalIgnoreCase);
@@ -16,7 +19,10 @@ public sealed record AppIdentity(string Key, string Name, string Detail, ImageSo
     public static AppIdentity For(string key)
     {
         if (Cache.TryGetValue(key, out var cached)) return cached;
-        var identity = key.StartsWith("np:") ? Desktop(key, key[3..]) : Packaged(key, key.StartsWith("pkg:") ? key[4..] : key);
+        var identity = key.StartsWith("np:") ? Desktop(key, key[3..])
+            : key.StartsWith("sys:") ? new AppIdentity(key, key[4..], "Part of Windows", null)
+            : key.StartsWith("svc:") ? new AppIdentity(key, key[4..], "Windows service", null)
+            : Packaged(key, key.StartsWith("pkg:") ? key[4..] : key);
         Cache[key] = identity;
         return identity;
     }

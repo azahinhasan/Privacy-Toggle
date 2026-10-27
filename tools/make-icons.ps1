@@ -55,6 +55,16 @@ function Draw-Camera($g, [int]$s, [System.Drawing.Color]$color = $Ink) {
         (New-Object System.Drawing.PointF ($s * 0.63), ($s * 0.54))))
 }
 
+# Draws a globe glyph in $color for the network: outline, one meridian and the equator.
+function Draw-Globe($g, [int]$s, [System.Drawing.Color]$color = $Ink) {
+    $pen = New-Object System.Drawing.Pen $color, ([Math]::Max(1.0, $s * 0.075))
+    $r = $s * 0.27
+    $c = $s * 0.5
+    $g.DrawEllipse($pen, $c - $r, $c - $r, 2 * $r, 2 * $r)
+    $g.DrawEllipse($pen, $c - $r * 0.45, $c - $r, $r * 0.9, 2 * $r)
+    $g.DrawLine($pen, $c - $r, $c, $c + $r, $c)
+}
+
 # App icon: a white privacy shield with an ink outline and an ink keyhole.
 function Draw-Shield($g, [int]$s, [System.Drawing.Color]$hole) {
     $p = New-Object System.Drawing.Drawing2D.GraphicsPath
@@ -122,8 +132,8 @@ function Render([string]$kind, [int]$s) {
             $g.Restore($state)
         }
         default {
-            # 'on' / 'off' / 'none' = microphone; 'cam-on' / 'cam-off' / 'cam-none' = camera
-            $state = $kind -replace '^cam-', ''
+            # 'on' / 'off' / 'none' = microphone; 'cam-on' / ... = camera; 'net-on' / ... = network
+            $state = $kind -replace '^(cam|net)-', ''
             $color = switch ($state) {
                 'on'   { [System.Drawing.Color]::FromArgb(255, 123, 228, 149) }   # LiveFill
                 'off'  { [System.Drawing.Color]::FromArgb(255, 255, 107, 107) }   # coral
@@ -141,7 +151,7 @@ function Render([string]$kind, [int]$s) {
                 $zoom = if ($kind -like 'cam-*') { 1.1 } else { 1.3 }   # the camera is wider, so it has less room
                 $g.TranslateTransform($s / 2, $s / 2); $g.ScaleTransform($zoom, $zoom); $g.TranslateTransform(-$s / 2, -$s / 2)
             }
-            if ($kind -like 'cam-*') { Draw-Camera $g $s } else { Draw-Mic $g $s 0.56 }
+            if ($kind -like 'cam-*') { Draw-Camera $g $s } elseif ($kind -like 'net-*') { Draw-Globe $g $s } else { Draw-Mic $g $s 0.56 }
             $g.Restore($unzoomed)
             if ($state -eq 'off') { Draw-Slash $g $s $color }
             $g.Restore($saved)
@@ -212,11 +222,14 @@ Write-Ico 'none' (Join-Path $outDir 'mic-none.ico')
 Write-Ico 'cam-on'   (Join-Path $outDir 'cam-on.ico')
 Write-Ico 'cam-off'  (Join-Path $outDir 'cam-off.ico')
 Write-Ico 'cam-none' (Join-Path $outDir 'cam-none.ico')
+Write-Ico 'net-on'   (Join-Path $outDir 'net-on.ico')
+Write-Ico 'net-off'  (Join-Path $outDir 'net-off.ico')
+Write-Ico 'net-none' (Join-Path $outDir 'net-none.ico')
 
 # Large PNG previews for the docs
 $docs = Join-Path $PSScriptRoot '..\docs'
 New-Item -ItemType Directory -Force $docs | Out-Null
-foreach ($k in 'app', 'on', 'off', 'none', 'cam-on', 'cam-off', 'cam-none') {
+foreach ($k in 'app', 'on', 'off', 'none', 'cam-on', 'cam-off', 'cam-none', 'net-on', 'net-off', 'net-none') {
     $bmp = Render $k 256
     $bmp.Save((Join-Path $docs "icon-$k.png"), [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()

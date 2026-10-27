@@ -38,6 +38,29 @@ public static class Glyphs
         return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center };
     }
 
+    private static readonly Geometry Globe = Geometry.Parse(
+        "M3.5,12 a8.5,8.5 0 1 0 17,0 a8.5,8.5 0 1 0 -17,0 M8.5,12 a3.5,8.5 0 1 0 7,0 a3.5,8.5 0 1 0 -7,0 M3.5,12 h17");
+
+    /// <summary>Globe outline for the network, in <paramref name="brushKey"/> (network teal by default).</summary>
+    public static FrameworkElement Network(double size, string brushKey = "NetUsage")
+    {
+        var path = new Path { Data = Globe, StrokeThickness = 2.2 };
+        path.SetResourceReference(Shape.StrokeProperty, brushKey);
+        var canvas = new Canvas { Width = 24, Height = 24, Children = { path } };
+        return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center };
+    }
+
+    private static readonly Geometry Arrows = Geometry.Parse("M8,20 V5 M4,9 L8,5 L12,9 M16,4 V19 M12,15 L16,19 L20,15");
+
+    /// <summary>Up/down arrows (data sent and received), for the network card's header.</summary>
+    public static FrameworkElement Transfer(double size, string brushKey = "NetUsage")
+    {
+        var path = new Path { Data = Arrows, StrokeThickness = 2.4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
+        path.SetResourceReference(Shape.StrokeProperty, brushKey);
+        var canvas = new Canvas { Width = 24, Height = 24, Children = { path } };
+        return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center };
+    }
+
     private static Path Filled(Geometry g, string brushKey)
     {
         var p = new Path { Data = g };
@@ -46,18 +69,38 @@ public static class Glyphs
     }
 }
 
-/// <summary>Where the time labels and gridlines go for a range.</summary>
-public static class TimeScale
+
+/// <summary>
+/// The History timeline's time mapping. The selected range minus its last five minutes fills the left 80%
+/// (the history area); the last five minutes fill the right 20% (the "Last 5 min" live zone), so what's
+/// happening now is always readable however long the range is.
+/// </summary>
+public static class SplitScale
 {
-    public static double X(DateTime t, DateTime from, DateTime to, double width)
+    public static readonly TimeSpan LiveSpan = TimeSpan.FromMinutes(5);
+    public const double HistoryShare = 0.8;
+
+    public static DateTime ZoneStart(DateTime now) => now - LiveSpan;
+
+    public static double X(DateTime t, DateTime from, DateTime now, double width)
     {
-        double f = (t - from).TotalSeconds / Math.Max(1, (to - from).TotalSeconds);
-        return Math.Clamp(f, 0, 1) * Math.Max(0, width - 2); // 2px inset so the "now" line stays visible
+        double w = Math.Max(0, width - 2); // 2px inset so the right edge stays visible
+        var zone = ZoneStart(now);
+        if (t <= zone)
+        {
+            double f = (t - from).TotalSeconds / Math.Max(1, (zone - from).TotalSeconds);
+            return Math.Clamp(f, 0, 1) * w * HistoryShare;
+        }
+        double g = (t - zone).TotalSeconds / LiveSpan.TotalSeconds;
+        return (HistoryShare + Math.Clamp(g, 0, 1) * (1 - HistoryShare)) * w;
     }
 
-    /// <summary>Tick times; midnight ticks are flagged (stronger line + date label).</summary>
-    public static IEnumerable<(DateTime Time, bool Midnight)> Ticks(ActivityRange range, DateTime from, DateTime to)
+    public static double Divider(double width) => Math.Max(0, width - 2) * HistoryShare;
+
+    /// <summary>Tick times inside the history area; midnight ticks are flagged (date label).</summary>
+    public static IEnumerable<(DateTime Time, bool Midnight)> Ticks(ActivityRange range, DateTime from, DateTime now)
     {
+        var to = ZoneStart(now);
         if (range == ActivityRange.Days7)
         {
             for (var d = from.Date.AddDays(1); d < to; d = d.AddDays(1)) yield return (d, true);
@@ -91,7 +134,7 @@ public static class TimeScale
 /// <summary>Base for the drawn timeline parts: shared window and theme-brush lookup, redraw on theme change.</summary>
 public abstract class TimeElement : FrameworkElement
 {
-    protected DateTime From, To;
+    protected DateTime From, Now;
     protected ActivityRange Range;
 
     protected TimeElement()
@@ -100,9 +143,9 @@ public abstract class TimeElement : FrameworkElement
         Unloaded += (_, _) => ThemeService.Changed -= InvalidateVisual;
     }
 
-    public void SetWindow(DateTime from, DateTime to, ActivityRange range)
+    public void SetWindow(DateTime from, DateTime now, ActivityRange range)
     {
-        (From, To, Range) = (from, to, range);
+        (From, Now, Range) = (from, now, range);
         InvalidateVisual();
     }
 
@@ -116,84 +159,86 @@ public abstract class TimeElement : FrameworkElement
         return c;
     }
 
-    protected double X(DateTime t) => TimeScale.X(t, From, To, ActualWidth);
+    protected double X(DateTime t) => SplitScale.X(t, From, Now, ActualWidth);
 }
 
-/// <summary>Time labels above the tracks; "Now" at the right end, date labels at midnight.</summary>
-public sealed class TimeAxis : TimeElement
+/// <summary>Time labels over the history area; "Last 5 min" and a NOW badge over the live zone.</summary>
+public sealed class HistoryAxis : TimeElement
 {
     protected override Size MeasureOverride(Size available) => new(0, 24);
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (To <= From) return;
-        var secondary = Res("TextSecondary");
-        // "NOW" tag: black on yellow in an ink box, sitting on the now line.
-        var now = TimeScale.Text(this, "NOW", 10, Res("AccentText"), bold: true);
-        var tag = new Rect(ActualWidth - now.Width - 12, 1, now.Width + 10, 18);
-        dc.DrawRoundedRectangle(Res("Accent"), new Pen(Res("Ink"), 2), tag, 4, 4);
-        dc.DrawText(now, new Point(tag.X + 5, tag.Y + (tag.Height - now.Height) / 2));
-        double nowLeft = tag.X;
+        if (Now <= From) return;
+        double divider = SplitScale.Divider(ActualWidth);
 
+        var now = SplitScale.Text(this, "NOW", 10, Res("AccentText"), bold: true);
+        var tag = new Rect(ActualWidth - now.Width - 12, 1, now.Width + 10, 18);
+        dc.DrawRoundedRectangle(Res("Accent"), null, tag, 4, 4);
+        dc.DrawText(now, new Point(tag.X + 5, tag.Y + (tag.Height - now.Height) / 2));
+
+        var zone = SplitScale.Text(this, "Last 5 min", 11, Res("AccentSoft"), bold: true);
+        if (divider + 6 + zone.Width < tag.X - 4) dc.DrawText(zone, new Point(divider + 6, 3));
+
+        var secondary = Res("TextSecondary");
         double lastRight = double.NegativeInfinity;
-        foreach (var (t, midnight) in TimeScale.Ticks(Range, From, To))
+        foreach (var (t, midnight) in SplitScale.Ticks(Range, From, Now))
         {
-            // A midnight inside an hourly view gets an emphasised date; in the 7-day view all labels are days.
-            bool strong = midnight && Range != ActivityRange.Days7;
-            var label = TimeScale.Text(this, TimeScale.Label(t, Range, midnight), 11,
-                strong ? Res("TextPrimary") : secondary, bold: true);
+            // The current day's date label is bold, like the design.
+            bool strong = midnight && t.Date == Now.Date;
+            var label = SplitScale.Text(this, SplitScale.Label(t, Range, midnight), 11, strong ? Res("TextPrimary") : secondary, bold: strong);
             double x = X(t);
-            // Day labels sit just right of their line; time labels are centred on it.
             double left = Range == ActivityRange.Days7 ? x + 4 : x - label.Width / 2;
-            if (left < 0 || left < lastRight + 8 || left + label.Width > nowLeft - 8) continue;
+            if (left < 0 || left < lastRight + 8 || left + label.Width > divider - 6) continue;
             dc.DrawText(label, new Point(left, 3));
             lastRight = left + label.Width;
         }
     }
 }
 
-/// <summary>Gridlines behind the tracks (stronger at midnight), or the "now" line in front of them.</summary>
-public sealed class TimeGrid : TimeElement
+/// <summary>Behind the rows: gridlines in the history area, the shaded live zone and its dashed orange divider.</summary>
+public sealed class HistoryBackdrop : TimeElement
 {
-    public bool NowLine { get; init; }
-
-    public TimeGrid() => IsHitTestVisible = false;
+    public HistoryBackdrop() => IsHitTestVisible = false;
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (To <= From) return;
-        if (NowLine)
-        {
-            double x = X(To) + 0.75;
-            dc.DrawLine(new Pen(Res("Ink"), 2.5), new Point(x, 0), new Point(x, ActualHeight));
-            return;
-        }
-        var grid = new Pen(Faded(Res("Ink"), 0.12), 1.5) { DashStyle = new DashStyle(new double[] { 2, 3 }, 0) };
-        var midnightPen = new Pen(Res("Ink"), 2);
-        foreach (var (t, midnight) in TimeScale.Ticks(Range, From, To))
+        if (Now <= From) return;
+        double divider = SplitScale.Divider(ActualWidth);
+        dc.DrawRectangle(Res("LiveZoneBg"), null, new Rect(divider, 0, Math.Max(0, ActualWidth - divider), ActualHeight));
+
+        var grid = new Pen(Faded(Res("TextSecondary"), 0.18), 1) { DashStyle = new DashStyle(new double[] { 2, 3 }, 0) };
+        var midnight = new Pen(Faded(Res("TextSecondary"), 0.5), 1.5);
+        foreach (var (t, isMidnight) in SplitScale.Ticks(Range, From, Now))
         {
             double x = Math.Round(X(t)) + 0.5;
-            // In the 7-day view every line is a midnight; only shorter ranges need the stronger day divider.
-            dc.DrawLine(midnight && Range != ActivityRange.Days7 ? midnightPen : grid, new Point(x, 0), new Point(x, ActualHeight));
+            dc.DrawLine(isMidnight && Range != ActivityRange.Days7 ? midnight : grid, new Point(x, 0), new Point(x, ActualHeight));
         }
+        var dashed = new Pen(Res("Accent"), 2) { DashStyle = new DashStyle(new double[] { 3, 2.5 }, 0) };
+        dc.DrawLine(dashed, new Point(divider, 0), new Point(divider, ActualHeight));
     }
 }
 
+/// <summary>Which lanes a row shows, top to bottom: Camera, Microphone, Network.</summary>
+public enum Lane { Camera, Microphone, Network }
+
 /// <summary>
-/// One app's usage across the window: camera lane on top, microphone lane below (or one lane when filtered).
-/// Bars are as wide as the real use, at least 4px; hover one for details.
+/// One app's lanes on the timeline. Camera and microphone sessions are rounded bars (at least 6px wide so short
+/// ones stay visible); the network lane is a bar histogram of the app's data rate, with the live zone drawn
+/// from its last few minutes second by second. Hover a bar for details.
 /// </summary>
-public sealed class UsageTrack : TimeElement
+public sealed class ActivityTrack : TimeElement
 {
-    private const double LaneHeight = 9, LaneGap = 5, MinBar = 6;
+    public const double BarLane = 9, NetLane = 20, Gap = 6, Pad = 4, MinBar = 6;
 
     private readonly ToolTip _tip = new() { Placement = PlacementMode.Mouse };
     private List<UsageSpan> _spans = new();
+    private double[] _history = Array.Empty<double>(), _live = Array.Empty<double>(); // network rate per bucket, 0..1
+    private List<Lane> _lanes = new();
     private string _app = "";
-    private bool _showCam = true, _showMic = true;
     private UsageSpan? _hovered;
 
-    public UsageTrack()
+    public ActivityTrack()
     {
         ToolTip = _tip;
         ToolTipService.SetInitialShowDelay(this, 0);
@@ -201,25 +246,40 @@ public sealed class UsageTrack : TimeElement
         ToolTipService.SetShowDuration(this, int.MaxValue);
         _tip.Opened += (_, _) => { if (_hovered == null) _tip.IsOpen = false; };
         _tip.SetResourceReference(StyleProperty, "ThemedToolTip");
-        Height = 40;
     }
 
-    public void SetData(string app, List<UsageSpan> spans, ActivityFilter filter)
+    public IReadOnlyList<Lane> Lanes => _lanes;
+
+    /// <summary>Height for a set of lanes.</summary>
+    public static double HeightFor(IReadOnlyList<Lane> lanes) =>
+        2 * Pad + lanes.Sum(l => l == Lane.Network ? NetLane : BarLane) + Gap * Math.Max(0, lanes.Count - 1);
+
+    /// <summary>Vertical centre of a lane (for the pulsing "live" dot drawn over the track).</summary>
+    public double LaneCenter(Lane lane)
     {
-        _app = app;
-        _spans = spans;
-        _showCam = filter != ActivityFilter.Microphone;
-        _showMic = filter != ActivityFilter.Camera;
+        double y = Pad;
+        foreach (var l in _lanes)
+        {
+            double h = l == Lane.Network ? NetLane : BarLane;
+            if (l == lane) return y + h / 2;
+            y += h + Gap;
+        }
+        return ActualHeight / 2;
+    }
+
+    private double LaneTop(Lane lane) => LaneCenter(lane) - (lane == Lane.Network ? NetLane : BarLane) / 2;
+
+    public void SetData(string app, List<Lane> lanes, List<UsageSpan> spans, double[] history, double[] live)
+    {
+        (_app, _lanes, _spans, _history, _live) = (app, lanes, spans, history, live);
+        Height = HeightFor(lanes);
         InvalidateVisual();
     }
 
-    private (double Top, bool Visible) Lane(UsageDevice d)
+    public void SetLive(double[] live)
     {
-        double mid = ActualHeight / 2;
-        if (_showCam && _showMic)
-            return d == UsageDevice.Camera ? (mid - LaneHeight - LaneGap / 2, true) : (mid + LaneGap / 2, true);
-        bool visible = d == UsageDevice.Camera ? _showCam : _showMic;
-        return (mid - LaneHeight / 2, visible);
+        _live = live;
+        InvalidateVisual();
     }
 
     private (double X1, double X2) Bar(UsageSpan s)
@@ -236,25 +296,42 @@ public sealed class UsageTrack : TimeElement
     protected override void OnRender(DrawingContext dc)
     {
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize)); // whole row area is hoverable
-        if (To <= From) return;
-        // Hollow outlined lanes, solid outlined bars (neubrutal: everything gets an ink edge).
-        var laneFill = Res("ControlBg");
-        var lanePen = new Pen(Faded(Res("Ink"), 0.35), 1.5);
-        foreach (var d in new[] { UsageDevice.Camera, UsageDevice.Microphone })
+        if (Now <= From) return;
+        double w = Math.Max(0, ActualWidth - 2), divider = SplitScale.Divider(ActualWidth);
+        var track = Res("TrackBg");
+        foreach (var lane in _lanes)
         {
-            var (top, visible) = Lane(d);
-            if (visible)
-                dc.DrawRoundedRectangle(laneFill, lanePen, new Rect(0, top, Math.Max(0, ActualWidth - 2), LaneHeight), 4, 4);
+            double top = LaneTop(lane);
+            if (lane == Lane.Network)
+            {
+                var fill = Res("NetUsage");
+                var empty = Faded(fill, 0.22);
+                Histogram(dc, _history, 0, divider, top, fill, empty);
+                Histogram(dc, _live, divider, w, top, fill, empty);
+                continue;
+            }
+            dc.DrawRoundedRectangle(track, null, new Rect(0, top, w, BarLane), 4, 4);
+            var device = lane == Lane.Camera ? UsageDevice.Camera : UsageDevice.Microphone;
+            var brush = Res(Glyphs.BrushKey(device));
+            var highlight = new Pen(Res("TextPrimary"), 1.5);
+            foreach (var s in _spans.Where(s => s.Device == device))
+            {
+                var (x1, x2) = Bar(s);
+                dc.DrawRoundedRectangle(brush, ReferenceEquals(s, _hovered) ? highlight : null, new Rect(x1, top, x2 - x1, BarLane), 4, 4);
+            }
         }
-        var ink = new Pen(Res("Ink"), 1.8);
-        var highlight = new Pen(Res("Ink"), 3);
-        foreach (var s in _spans)
+    }
+
+    /// <summary>Bars for buckets spread across [x1, x2]; empty buckets show as a faint stub.</summary>
+    private static void Histogram(DrawingContext dc, double[] values, double x1, double x2, double top, Brush fill, Brush empty)
+    {
+        if (values.Length == 0 || x2 <= x1) return;
+        double step = (x2 - x1) / values.Length, bar = Math.Max(1.5, step - 1.5);
+        for (int i = 0; i < values.Length; i++)
         {
-            var (top, visible) = Lane(s.Device);
-            if (!visible) continue;
-            var (x1, x2) = Bar(s);
-            dc.DrawRoundedRectangle(Res(Glyphs.BrushKey(s.Device)), ReferenceEquals(s, _hovered) ? highlight : ink,
-                new Rect(x1, top, x2 - x1, LaneHeight), 4, 4);
+            double v = Math.Clamp(values[i], 0, 1);
+            double h = v > 0 ? Math.Max(3, v * NetLane) : 2.5;
+            dc.DrawRoundedRectangle(v > 0 ? fill : empty, null, new Rect(x1 + i * step + 0.75, top + NetLane - h, bar, h), 1, 1);
         }
     }
 
@@ -265,10 +342,11 @@ public sealed class UsageTrack : TimeElement
         UsageSpan? hit = null;
         foreach (var s in _spans)
         {
-            var (top, visible) = Lane(s.Device);
-            if (!visible) continue;
+            var lane = s.Device == UsageDevice.Camera ? Lane.Camera : Lane.Microphone;
+            if (!_lanes.Contains(lane)) continue;
+            double top = LaneTop(lane);
             var (x1, x2) = Bar(s);
-            if (p.X >= x1 - 3 && p.X <= x2 + 3 && p.Y >= top - 5 && p.Y <= top + LaneHeight + 5) hit = s;
+            if (p.X >= x1 - 3 && p.X <= x2 + 3 && p.Y >= top - 4 && p.Y <= top + BarLane + 4) hit = s;
         }
         if (!ReferenceEquals(hit, _hovered))
         {
@@ -302,39 +380,54 @@ public sealed class UsageTrack : TimeElement
     }
 }
 
-/// <summary>Tiny 24-hour two-lane sparkline for the list view.</summary>
-public sealed class Sparkline : TimeElement
+/// <summary>
+/// A small microphone level meter: about 22 thin bars, newest on the right, from real peak levels. With no level
+/// (the app's audio session can't be matched) it stays flat and low rather than faking movement.
+/// </summary>
+public sealed class LevelMeter : FrameworkElement
 {
-    private List<UsageSpan> _spans = new();
-    private bool _showCam = true, _showMic = true;
+    public const int MaxBars = 80; // enough for the widest card; the meter shows as many as fit
+    private readonly Queue<double> _levels = new();
 
-    public Sparkline()
+    public static readonly DependencyProperty BarBrushProperty = DependencyProperty.Register(nameof(BarBrush), typeof(Brush),
+        typeof(LevelMeter), new FrameworkPropertyMetadata(Brushes.SteelBlue, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public Brush BarBrush
     {
-        Width = 96;
-        Height = 20;
+        get => (Brush)GetValue(BarBrushProperty);
+        set => SetValue(BarBrushProperty, value);
+    }
+
+    public LevelMeter()
+    {
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        Height = 10;
         IsHitTestVisible = false;
     }
 
-    public void SetData(List<UsageSpan> spans, ActivityFilter filter, DateTime now)
+    /// <summary>Adds the latest peak (0..1), or null when unknown.</summary>
+    public void Push(double? level)
     {
-        _spans = spans;
-        _showCam = filter != ActivityFilter.Microphone;
-        _showMic = filter != ActivityFilter.Camera;
-        SetWindow(now.AddHours(-24), now, ActivityRange.Hours24);
+        _levels.Enqueue(level ?? -1);
+        while (_levels.Count > MaxBars) _levels.Dequeue();
+        InvalidateVisual();
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (To <= From) return;
-        // Ink-outlined box, like every other neubrutal surface.
-        dc.DrawRoundedRectangle(Res("ControlBg"), new Pen(Res("Ink"), 2), new Rect(1, 1, ActualWidth - 2, ActualHeight - 2), 4, 4);
-        bool both = _showCam && _showMic;
-        foreach (var s in _spans)
+        var levels = _levels.ToArray();
+        int bars = Math.Clamp((int)(ActualWidth / 7), 1, MaxBars); // short dashes across the full width
+        double step = ActualWidth / bars;
+        for (int i = 0; i < bars; i++)
         {
-            if (s.Device == UsageDevice.Camera ? !_showCam : !_showMic) continue;
-            double top = !both ? 7 : s.Device == UsageDevice.Camera ? 4 : 11;
-            double x1 = X(s.Start), x2 = Math.Max(X(s.End), x1 + 2);
-            dc.DrawRoundedRectangle(Res(Glyphs.BrushKey(s.Device)), null, new Rect(x1, top, x2 - x1, 5), 1.5, 1.5);
+            int j = i - (bars - levels.Length); // right-aligned: the newest level is the last bar
+            double v = j >= 0 ? levels[j] : -1;
+            bool known = v >= 0;
+            // Speech peaks are small; a square-root curve keeps quiet talking visible.
+            double h = known ? Math.Clamp(Math.Sqrt(v) * Height, 1.5, Height) : 1.5;
+            var brush = BarBrush.Clone();
+            brush.Opacity = known && v > 0.01 ? 1 : 0.35;
+            dc.DrawRoundedRectangle(brush, null, new Rect(i * step, (Height - h) / 2, Math.Max(2, step - 2), h), 1, 1);
         }
     }
 }

@@ -206,8 +206,11 @@ public sealed class CameraService : IDisposable
         if (State != oldState || DesiredOff != oldDesired || fromSet) StateChanged?.Invoke();
     }
 
-    /// <summary>One request/response over the helper pipe. Returns null if the helper isn't running.</summary>
-    private static Task<CameraResponse?> SendAsync(CameraRequest request) => Task.Run(() =>
+    /// <summary>
+    /// One request/response over the helper pipe. Returns null if the helper isn't running.
+    /// Shared with <see cref="NetworkService"/>, which talks to the same helper.
+    /// </summary>
+    internal static Task<CameraResponse?> SendAsync(CameraRequest request) => Task.Run(() =>
     {
         try
         {

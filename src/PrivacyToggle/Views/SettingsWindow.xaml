@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:PrivacyToggle.Views"
-        Title="PrivacyToggle Settings" Width="1080" Height="640" MinWidth="680" MinHeight="500"
+        Title="PrivacyToggle Settings" Width="1105" Height="655" MinWidth="680" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Assets/app.ico"
         Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}"
@@ -61,10 +61,16 @@
                             <TextBlock x:Name="MicChip" Margin="9,0,0,0" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimary}"
                                        TextWrapping="Wrap" />
                         </DockPanel>
-                        <DockPanel>
+                        <DockPanel Margin="0,0,0,7">
                             <Ellipse x:Name="CamDot" DockPanel.Dock="Left" Width="11" Height="11" VerticalAlignment="Top" Margin="0,3,0,0"
                                      Stroke="{DynamicResource Ink}" StrokeThickness="2" />
                             <TextBlock x:Name="CamChip" Margin="9,0,0,0" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimary}"
+                                       TextWrapping="Wrap" />
+                        </DockPanel>
+                        <DockPanel>
+                            <Ellipse x:Name="NetDot" DockPanel.Dock="Left" Width="11" Height="11" VerticalAlignment="Top" Margin="0,3,0,0"
+                                     Stroke="{DynamicResource Ink}" StrokeThickness="2" />
+                            <TextBlock x:Name="NetChip" Margin="9,0,0,0" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimary}"
                                        TextWrapping="Wrap" />
                         </DockPanel>
                     </StackPanel>
@@ -85,6 +91,7 @@
                     </RadioButton>
                     <RadioButton x:Name="NavMic" Style="{StaticResource NavItem}" Content="Microphone" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavCamera" Style="{StaticResource NavItem}" Content="Camera" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavNetwork" Style="{StaticResource NavItem}" Content="Network" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" Content="General" Checked="Nav_Checked" />
                     <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" Checked="Nav_Checked">
                         <StackPanel Orientation="Horizontal">
@@ -114,9 +121,14 @@
                             <ColumnDefinition Width="16" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
                         <!-- microphone card -->
-                        <Border Style="{StaticResource Card}" Padding="20" Margin="0">
+                        <Border Style="{StaticResource Card}" Padding="20" Margin="0" Cursor="Hand" Tag="Microphone" MouseLeftButtonUp="OverviewCard_Click"
+                                ToolTip="Open the Microphone page">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                                     <Image x:Name="MicCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
@@ -138,7 +150,8 @@
                         </Border>
 
                         <!-- camera card -->
-                        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="20" Margin="0">
+                        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="20" Margin="0" Cursor="Hand" Tag="Camera" MouseLeftButtonUp="OverviewCard_Click"
+                                ToolTip="Open the Camera page">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                                     <Image x:Name="CamCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
@@ -155,6 +168,29 @@
                                         <TextBlock x:Name="CamCardState" FontFamily="Segoe UI Black, Segoe UI" FontSize="24" FontWeight="Black" Foreground="#111111" />
                                     </Border>
                                     <TextBlock x:Name="CamCardHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- network card (second row: three cards side by side get too narrow) -->
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="20" Margin="0,22,0,0" Cursor="Hand" Tag="Network" MouseLeftButtonUp="OverviewCard_Click"
+                                ToolTip="Open the Network page">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                                    <Image x:Name="NetCardIcon" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Network" FontSize="17" FontWeight="Bold" />
+                                        <TextBlock x:Name="NetCardDevices" Style="{StaticResource Hint}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button DockPanel.Dock="Bottom" x:Name="NetCardButton" Style="{StaticResource AccentButton}"
+                                        Margin="0,18,0,0" Click="NetCardButton_Click" />
+                                <StackPanel Margin="0,20,0,0">
+                                    <Border x:Name="NetStateBadge" HorizontalAlignment="Left" Padding="14,2,14,4" CornerRadius="6" BorderThickness="2.5"
+                                            BorderBrush="{DynamicResource Ink}" Effect="{DynamicResource HardShadowSmall}">
+                                        <TextBlock x:Name="NetCardState" FontFamily="Segoe UI Black, Segoe UI" FontSize="24" FontWeight="Black" Foreground="#111111" />
+                                    </Border>
+                                    <TextBlock x:Name="NetCardHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -413,6 +449,148 @@
                     </Border>
                     <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
                                Text="Turning the camera off disables it in Windows, the same as Device Manager does. Apps using it lose the picture immediately, and no app can open it until you turn it back on. If a program holds the camera and won't let go, PrivacyToggle asks before closing it; a background service closed this way is started again when you turn the camera back on." />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Network -->
+            <ScrollViewer x:Name="PageNetwork" VerticalScrollBarVisibility="Auto" Padding="28,22,28,10" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Network" />
+
+                    <Border x:Name="NetHelperBanner" Style="{StaticResource Card}" Padding="16,14" BorderBrush="{DynamicResource Warning}" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="NetHelperBannerTitle" FontWeight="SemiBold" Foreground="{DynamicResource Warning}" />
+                            <TextBlock x:Name="NetHelperBannerText" Style="{StaticResource Hint}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Shortcut" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <v:HotkeyRecorderBox x:Name="NetRecorder" Width="260" />
+                                <Button Style="{StaticResource SubtleButton}" Content="Reset" Margin="8,0,0,0" Click="ResetNetHotkey_Click" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                       Text="Click the box and press a combination with at least one of Ctrl, Alt, Shift or Win. Works even when another app is focused." />
+                            <TextBlock x:Name="NetHotkeyWarning" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Warning}" Visibility="Collapsed" />
+                            <TextBlock x:Name="NetHotkeyHint" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="When PrivacyToggle starts" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <WrapPanel>
+                            <RadioButton x:Name="NetStartKeepLast" Style="{StaticResource Segment}" GroupName="NetOnStart" Content="Keep last state" Checked="NetOnStart_Changed" />
+                            <RadioButton x:Name="NetStartOn" Style="{StaticResource Segment}" GroupName="NetOnStart" Content="Always connected" Checked="NetOnStart_Changed" />
+                            <RadioButton x:Name="NetStartOff" Style="{StaticResource Segment}" GroupName="NetOnStart" Content="Always disconnected" Checked="NetOnStart_Changed" />
+                        </WrapPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Which connections to turn off" />
+                    <Border Style="{StaticResource Card}" Padding="16,14">
+                        <StackPanel>
+                            <WrapPanel>
+                                <RadioButton x:Name="NetDevAll" Style="{StaticResource Segment}" GroupName="NetDev" Content="All (Wi-Fi and wired)" Checked="NetDevices_Changed" />
+                                <RadioButton x:Name="NetDevSelected" Style="{StaticResource Segment}" GroupName="NetDev" Content="Only selected" Checked="NetDevices_Changed" />
+                            </WrapPanel>
+                            <StackPanel x:Name="NetListPanel" Margin="0,12,0,0">
+                                <ItemsControl x:Name="NetList" />
+                                <TextBlock x:Name="NoAdaptersText" Style="{StaticResource Hint}" Text="No network adapters found." Visibility="Collapsed" />
+                                <TextBlock x:Name="NetSelectNoneWarning" Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Warning}" Visibility="Collapsed"
+                                           Text="No connection selected: turning the network off will have no effect." />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NetEnforceBox" Style="{StaticResource ToggleSwitch}" Checked="NetEnforce_Changed" Unchecked="NetEnforce_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Keep the network off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="If a connection is turned back on elsewhere (for example in Network Connections) while PrivacyToggle has it off, turn it off again. When off, PrivacyToggle follows the change." />
+                                </StackPanel>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Tray icon" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NetTrayBox" Style="{StaticResource ToggleSwitch}" Checked="NetTray_Changed" Unchecked="NetTray_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show the network icon in the tray" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Click it to disconnect or reconnect. Right-click for all controls and Settings." />
+                                </StackPanel>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock x:Name="TaskbarSpeedSection" Style="{StaticResource SectionTitle}" Text="Taskbar speed" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="TaskbarSpeedBox" Style="{StaticResource ToggleSwitch}" Checked="TaskbarSpeed_Changed" Unchecked="TaskbarSpeed_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show network speed on the taskbar" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="The current download and upload speed of this PC, next to the tray icons. Updates every second, and steps aside for fullscreen apps." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="TaskbarSpeedShowPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Show" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="TaskbarShowBoth" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Download and upload" Checked="TaskbarSpeed_Changed" />
+                                    <RadioButton x:Name="TaskbarShowDown" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Download only" Checked="TaskbarSpeed_Changed" />
+                                    <RadioButton x:Name="TaskbarShowUp" Style="{StaticResource Segment}" GroupName="TaskbarShow" Content="Upload only" Checked="TaskbarSpeed_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Alerts" />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NetNotifyBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Notify me when the network turns off or on" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Each time you switch it, as a Windows notification or a badge that disappears after 2 seconds." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="NetNotifyStylePanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Notification style" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="NetNotifyWindows" Style="{StaticResource Segment}" GroupName="NetNotifyStyle" Content="Windows notification" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetNotifyBadge" Style="{StaticResource Segment}" GroupName="NetNotifyStyle" Content="Corner badge" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                                <StackPanel x:Name="NetNotifyCornerPanel" Margin="0,12,0,0">
+                                    <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                    <WrapPanel>
+                                        <RadioButton x:Name="NetNotifyCornerTL" Style="{StaticResource Segment}" GroupName="NetNotifyCorner" Content="Top left" Checked="Alerts_Changed" />
+                                        <RadioButton x:Name="NetNotifyCornerTR" Style="{StaticResource Segment}" GroupName="NetNotifyCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </StackPanel>
+                            <Border Style="{StaticResource RowDivider}" />
+                            <CheckBox x:Name="NetOverlayBox" Style="{StaticResource ToggleSwitch}" Checked="Alerts_Changed" Unchecked="Alerts_Changed">
+                                <StackPanel>
+                                    <TextBlock Text="Show a NET OFF badge while off" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="A small badge that stays on top of every app and lets clicks pass through. If it shares a corner with another OFF badge, they sit side by side." />
+                                </StackPanel>
+                            </CheckBox>
+                            <StackPanel x:Name="NetCornerPanel" Margin="0,0,0,14">
+                                <TextBlock Style="{StaticResource Hint}" Text="Badge position" Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <RadioButton x:Name="NetCornerTL" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Top left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerTR" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Top right" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerBL" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Bottom left" Checked="Alerts_Changed" />
+                                    <RadioButton x:Name="NetCornerBR" Style="{StaticResource Segment}" GroupName="NetCorner" Content="Bottom right" Checked="Alerts_Changed" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,12"
+                               Text="Turning the network off disables the selected network adapters in Windows, the same as the Network Connections window does. Nothing on this PC can reach the internet or your local network through them until you turn them back on. Virtual adapters (VPNs, virtual machines, WSL) aren't touched. Uninstalling PrivacyToggle turns every adapter it switched off back on." />
                 </StackPanel>
             </ScrollViewer>
 

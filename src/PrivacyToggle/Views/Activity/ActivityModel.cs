@@ -3,8 +3,10 @@ using PrivacyToggle.Services;
 namespace PrivacyToggle.Views;
 
 public enum ActivityRange { Hour1, Hours6, Hours24, Days7 }
-public enum ActivityFilter { All, Microphone, Camera }
-public enum ActivitySort { MostRecent, MostUsed, Name }
+public enum ActivityFilter { All, Microphone, Camera, Network }
+
+/// <summary>History order. LiveFirst (the default) pins apps using something now above the rest, newest first.</summary>
+public enum ActivitySort { LiveFirst, MostData, LongestMic, Name }
 
 /// <summary>
 /// A stretch of use as drawn: local times, clipped to the window, near-touching sessions merged.
@@ -90,7 +92,8 @@ public static class ActivityModel
 
         return sort switch
         {
-            ActivitySort.MostUsed => result.OrderByDescending(a => a.Live).ThenByDescending(a => a.Total).ToList(),
+            ActivitySort.MostData => result.OrderByDescending(a => a.Total).ToList(),
+            ActivitySort.LongestMic => result.OrderByDescending(a => a.Mic).ThenByDescending(a => a.LastActive).ToList(),
             ActivitySort.Name => result.OrderBy(a => a.App.Name, StringComparer.CurrentCultureIgnoreCase).ToList(),
             _ => result.OrderByDescending(a => a.Live).ThenByDescending(a => a.LastActive).ToList(),
         };
@@ -136,9 +139,33 @@ public static class ActivityModel
             .OrderBy(x => x.Spans.Min(s => s.Start))
             .ToList();
 
-    public static bool Matches(UsageDevice device, ActivityFilter filter) =>
-        filter == ActivityFilter.All ||
-        (filter == ActivityFilter.Microphone) == (device == UsageDevice.Microphone);
+    /// <summary>Today's use of one device: time used (overlaps counted once) and how many apps used it.</summary>
+    public static (TimeSpan Total, int Apps) DeviceToday(IReadOnlyList<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked,
+        DateTime now, UsageDevice device)
+    {
+        var today = sessions.Where(s => s.Device == device)
+            .SelectMany(s => Clip(new[] { s }, blocked, now.Date, now).Select(sp => (s.AppKey, Span: sp)))
+            .ToList();
+        return (Union(today.Select(x => x.Span)), today.Select(x => x.AppKey).Distinct().Count());
+    }
+
+    /// <summary>The app that last used a device (within 7 days) and when it stopped; null if none.</summary>
+    public static (string AppKey, DateTime End)? LastUse(IReadOnlyList<UsageSession> sessions, IReadOnlyList<BlockedRange> blocked,
+        DateTime now, UsageDevice device) =>
+        sessions.Where(s => s.Device == device)
+            .SelectMany(s => Clip(new[] { s }, blocked, now - Length(ActivityRange.Days7), now).Select(sp => (s.AppKey, Span: sp)))
+            .Where(x => !x.Span.Live)
+            .OrderByDescending(x => x.Span.End)
+            .Select(x => ((string, DateTime)?)(x.AppKey, x.Span.End))
+            .FirstOrDefault();
+
+    public static bool Matches(UsageDevice device, ActivityFilter filter) => filter switch
+    {
+        ActivityFilter.All => true,
+        ActivityFilter.Microphone => device == UsageDevice.Microphone,
+        ActivityFilter.Camera => device == UsageDevice.Camera,
+        _ => false, // Network: microphone and camera sessions don't belong
+    };
 
     /// <summary>
     /// Sessions as local spans inside [from, now], minus the time their device was blocked

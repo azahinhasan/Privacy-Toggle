@@ -75,6 +75,7 @@
 
     <MenuItem x:Name="ToggleItem" Header="Mute microphone" Click="Toggle_Click" />
     <MenuItem x:Name="CameraItem" Header="Turn camera off" Click="Camera_Click" />
+    <MenuItem x:Name="NetworkItem" Header="Disconnect network" Click="Network_Click" />
     <Separator />
     <MenuItem Header="Settings…" Click="Settings_Click" />
     <MenuItem x:Name="StartupItem" Header="Start with Windows" IsCheckable="True" Click="Startup_Click" />

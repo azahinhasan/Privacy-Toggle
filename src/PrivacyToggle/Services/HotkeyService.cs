@@ -9,6 +9,7 @@ public sealed class HotkeyService : IDisposable
 {
     public const int MicId = 0x4D4D;
     public const int CameraId = 0x4D4E;
+    public const int NetworkId = 0x4D4F;
 
     private readonly HwndSource _source;
     private readonly HashSet<int> _registered = new();
