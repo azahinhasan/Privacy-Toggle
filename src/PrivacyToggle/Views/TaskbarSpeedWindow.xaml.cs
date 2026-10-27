@@ -11,7 +11,8 @@ using PrivacyToggle.Services;
 namespace PrivacyToggle.Views;
 
 /// <summary>
-/// The current download/upload speed, shown on the taskbar just left of the system tray. Windows 11 has no
+/// The current download/upload speed, shown on the taskbar just left of the system tray (just above it, in a
+/// short form, when the taskbar is on the left or right of the screen). Windows 11 has no
 /// way for apps to add to the taskbar itself, so this is a small window kept on top of it (like TrafficMonitor
 /// does); clicking it opens the Network page. It steps aside the moment a fullscreen app is in front, and
 /// follows an auto-hiding taskbar as it slides in and out.
@@ -26,7 +27,9 @@ public partial class TaskbarSpeedWindow : Window
     private readonly WinEventProc _onForeground, _onTaskbarMoved; // kept alive: Windows calls them
     private IntPtr _hook, _moveHook, _taskbar;
     private bool _appBar, _placePending, _following, _askingWindows, _fullscreenPerWindows;
-    private int _barTop = int.MinValue;
+    private int _barTop = int.MinValue, _barLeft = int.MinValue;
+    private bool _vertical;
+    private double _down, _up;
     private long _barMoved;
     private IntPtr _hwnd;
     private TaskbarSpeedShow _show;
@@ -128,19 +131,45 @@ public partial class TaskbarSpeedWindow : Window
     private void Tick()
     {
         var (down, up) = _meter.Sample();
-        DownText.Text = "↓ " + Speed(down);
-        UpText.Text = "↑ " + Speed(up);
+        _down = down;
+        _up = up;
+        ShowSpeeds();
         var brush = TaskbarIsLight() ? DarkText : LightText;
         DownText.Foreground = UpText.Foreground = brush;
     }
 
-    /// <summary>"0 KB/s", "850 KB/s", "12.4 MB/s": at least KB, so the width barely changes.</summary>
-    private static string Speed(double bytesPerSecond) => bytesPerSecond switch
+    private void ShowSpeeds()
     {
-        >= 1 << 30 => $"{bytesPerSecond / (1 << 30):0.0} GB/s",
-        >= 1 << 20 => $"{bytesPerSecond / (1 << 20):0.0} MB/s",
-        _ => $"{bytesPerSecond / 1024:0} KB/s",
+        DownText.Text = "↓ " + Speed(_down, _vertical);
+        UpText.Text = "↑ " + Speed(_up, _vertical);
+    }
+
+    /// <summary>
+    /// "0 KB/s", "850 KB/s", "12.4 MB/s": at least KB, so the width barely changes. On a taskbar at the side
+    /// of the screen, which is much narrower, the short form: "850K", "12.4M".
+    /// </summary>
+    private static string Speed(double bytesPerSecond, bool compact) => bytesPerSecond switch
+    {
+        >= 1 << 30 => $"{bytesPerSecond / (1 << 30):0.0}" + (compact ? "G" : " GB/s"),
+        >= 1 << 20 => $"{bytesPerSecond / (1 << 20):0.0}" + (compact ? "M" : " MB/s"),
+        _ => $"{bytesPerSecond / 1024:0}" + (compact ? "K" : " KB/s"),
     };
+
+    /// <summary>Switches between the layout for a taskbar along the bottom/top and one along a side.</summary>
+    private void SetVertical(bool vertical)
+    {
+        if (vertical == _vertical) return;
+        _vertical = vertical;
+        foreach (var text in new[] { DownText, UpText })
+        {
+            text.MinWidth = vertical ? 0 : 76;
+            text.TextAlignment = vertical ? TextAlignment.Center : TextAlignment.Right;
+            text.FontSize = vertical ? 10.5 : 11.5;
+        }
+        Lines.Margin = vertical ? new Thickness(2, 0, 2, 0) : new Thickness(6, 0, 6, 0);
+        ShowSpeeds();
+        UpdateLayout(); // the new size, so it's placed right away
+    }
 
     /// <summary>
     /// <see cref="Place"/> right after the Windows event that asked for it, outside the event callback, with
@@ -166,7 +195,6 @@ public partial class TaskbarSpeedWindow : Window
         IntPtr tray = taskbar == IntPtr.Zero ? IntPtr.Zero : FindWindowEx(taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
         var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         bool ok = tray != IntPtr.Zero && GetWindowRect(taskbar, out var bar) && GetWindowRect(tray, out var notify)
-            && bar.Right - bar.Left > bar.Bottom - bar.Top // horizontal taskbar only
             && GetMonitorInfo(MonitorFromWindow(taskbar, MONITOR_DEFAULTTONEAREST), ref info);
         if (!ok)
         {
@@ -179,18 +207,37 @@ public partial class TaskbarSpeedWindow : Window
         // away the speed is simply off the screen with it rather than hidden, so there's nothing to show again.
         GetWindowRect(taskbar, out bar);
         GetWindowRect(tray, out notify);
-        if (bar.Top != _barTop)
+        if (bar.Top != _barTop || bar.Left != _barLeft)
         {
             _barTop = bar.Top;
+            _barLeft = bar.Left;
             _barMoved = Environment.TickCount64;
             FollowTaskbar();
         }
+        int barWidth = bar.Right - bar.Left, barHeight = bar.Bottom - bar.Top;
+        SetVertical(barHeight > barWidth); // taskbar on the left or right of the screen
         var dpi = VisualTreeHelper.GetDpi(this);
         int width = (int)Math.Ceiling(ActualWidth * dpi.DpiScaleX), height = (int)Math.Ceiling(ActualHeight * dpi.DpiScaleY);
-        int x = notify.Left - width - (int)(4 * dpi.DpiScaleX);
-        int y = bar.Top + (bar.Bottom - bar.Top - height) / 2;
+        int gap = (int)(4 * dpi.DpiScaleX);
         var screen = info.rcMonitor;
-        bool fits = x >= screen.Left && x + width <= screen.Right && !SpillsOntoOtherScreen(x, y, width, height, screen);
+        int x, y;
+        bool fits;
+        if (_vertical)
+        {
+            // Centred across the bar, just above the tray (which sits at the bottom of a side taskbar). If
+            // Windows doesn't say where the tray is, a little above the bottom, where the clock is.
+            bool trayKnown = notify.Top > bar.Top && notify.Bottom <= bar.Bottom && notify.Bottom > notify.Top;
+            x = bar.Left + (barWidth - width) / 2;
+            y = (trayKnown ? notify.Top : bar.Bottom - (int)(110 * dpi.DpiScaleY)) - height - gap;
+            fits = y >= screen.Top && y + height <= screen.Bottom;
+        }
+        else
+        {
+            x = notify.Left - width - gap;
+            y = bar.Top + (barHeight - height) / 2;
+            fits = x >= screen.Left && x + width <= screen.Right;
+        }
+        fits = fits && !SpillsOntoOtherScreen(x, y, width, height, screen);
 
         // Moved first (a hidden window moves too), so it never flashes up at its old spot.
         SetWindowPos(_hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
@@ -224,11 +271,14 @@ public partial class TaskbarSpeedWindow : Window
     /// </summary>
     private static bool SpillsOntoOtherScreen(int x, int y, int width, int height, RECT screen)
     {
-        int midX = x + width / 2;
-        if (y + height > screen.Bottom && MonitorFromPoint(new POINT { X = midX, Y = y + height - 1 }, MONITOR_DEFAULTTONULL) != IntPtr.Zero)
-            return true;
-        return y < screen.Top && MonitorFromPoint(new POINT { X = midX, Y = y }, MONITOR_DEFAULTTONULL) != IntPtr.Zero;
+        int midX = x + width / 2, midY = y + height / 2;
+        return (y + height > screen.Bottom && OnAScreen(midX, y + height - 1))
+            || (y < screen.Top && OnAScreen(midX, y))
+            || (x + width > screen.Right && OnAScreen(x + width - 1, midY))
+            || (x < screen.Left && OnAScreen(x, midY));
     }
+
+    private static bool OnAScreen(int x, int y) => MonitorFromPoint(new POINT { X = x, Y = y }, MONITOR_DEFAULTTONULL) != IntPtr.Zero;
 
     /// <summary>
     /// While the taskbar is moving, re-place every frame. Windows reports each step of the taskbar sliding
