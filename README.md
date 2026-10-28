@@ -53,9 +53,9 @@
 ##
 
 
-<img width="850" height="500" alt="Screenshot 2026-10-28 153407" src="https://github.com/user-attachments/assets/8b95a63f-67ef-439f-bedc-fb0bb0e9c038" />
-<img width="850" height="500" alt="Screenshot 2026-10-28 153505" src="https://github.com/user-attachments/assets/f436de7a-11a9-4d7c-9867-0b9e644c6339" />
-<img width="850" height="500" alt="Screenshot 2026-10-28 154153" src="https://github.com/user-attachments/assets/49cd0698-d36c-44c2-b5a3-d51b69cdd837" />
+<img width="850" height="530" alt="Screenshot 2026-10-28 153407" src="https://github.com/user-attachments/assets/8b95a63f-67ef-439f-bedc-fb0bb0e9c038" />
+<img width="850" height="700" alt="Screenshot 2026-10-28 153505" src="https://github.com/user-attachments/assets/f436de7a-11a9-4d7c-9867-0b9e644c6339" />
+<img width="850" height="530" alt="Screenshot 2026-10-28 154153" src="https://github.com/user-attachments/assets/49cd0698-d36c-44c2-b5a3-d51b69cdd837" />
 
 
 ## Install
